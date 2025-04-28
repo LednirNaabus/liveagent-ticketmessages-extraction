@@ -4,3 +4,4 @@ __init__.py
 *.csv
 response.json
 test.py
+classic-token.txt
