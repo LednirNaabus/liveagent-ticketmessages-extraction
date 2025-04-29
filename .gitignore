@@ -5,3 +5,4 @@ __init__.py
 response.json
 test.py
 classic-token.txt
+env/
