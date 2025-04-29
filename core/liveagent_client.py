@@ -1,10 +1,7 @@
-import os
-import time
 import requests
 import pandas as pd
+from tqdm import tqdm
 from config import config
-
-MAX_PAGES = 10
 
 def ping() -> bool:
     response = requests.get(
@@ -15,13 +12,9 @@ def ping() -> bool:
 def paginate(url: str, payload: dict, max_pages: int, headers: dict) -> list:
     all_data = []
     page = 1
-    start_time = time.time()
     
     while page <= max_pages:
         payload["_page"] = page
-
-        elapsed_time = time.time() - start_time
-        print(f"Fetching page {page}: {elapsed_time:.1f}s elapsed")
 
         response = requests.get(url=url, params=payload, headers=headers)
         response.raise_for_status()
@@ -31,22 +24,19 @@ def paginate(url: str, payload: dict, max_pages: int, headers: dict) -> list:
             data = data.get("data", [])
 
         if not data:
-            print(f"No data found on page {page}.")
             break
 
         all_data.extend(data)
         page += 1
 
-    total_elapsed_time = time.time() - start_time
-    print(f"Finished fetching. Total time: {total_elapsed_time:1f}s.\n")
     return all_data
 
-def tickets() -> dict:
+def tickets(max_pages: int = 5) -> dict:
 
     ticket_data = paginate(
         url=config.tickets_list_url,
         payload=config.ticket_payload.copy(),
-        max_pages=MAX_PAGES,
+        max_pages=max_pages,
         headers=config.headers
     )
 
@@ -73,16 +63,24 @@ def tickets() -> dict:
 
     return tickets_dict
 
-def get_ticket_messages(response: dict) -> pd.DataFrame:
+def get_ticket_messages(response: dict, max_pages: int = 5) -> pd.DataFrame:
     all_messages = []
 
-    for i, ticket_id in enumerate(response.get("id", [])):
+    ticket_ids = response.get("id", [])
+    owner_names = response.get("owner_name", [])
+    subjects = response.get("subject", [])
+    agentids = response.get("agentid", [])
+    tags_list = response.get("tags", [])
+
+    for i, ticket_id in enumerate(tqdm(ticket_ids, desc="Fetching ticket messages")):
+        # Uncomment this one if gusto makita anong ticket ID ang nagpprocess
+        # tqdm.write(f"Fetching ticket ID: {ticket_id}")
         url = f"{config.tickets_list_url}/{ticket_id}/messages"
         messages_data = paginate(
             url=url,
             payload=config.messages_payload.copy(),
             headers=config.headers,
-            max_pages=MAX_PAGES
+            max_pages=max_pages
         )
 
         for item in messages_data:
@@ -90,14 +88,14 @@ def get_ticket_messages(response: dict) -> pd.DataFrame:
             for message in messages:
                 all_messages.append({
                     "ticket_id": ticket_id,
-                    "owner_name": response.get("owner_name", [None])[i],
+                    "owner_name": owner_names[i] if i < len(owner_names) else None,
                     "message_id": message.get("id"),
-                    "subject": response.get("subject", [None])[i],
+                    "subject": subjects[i] if i < len(subjects) else None,
                     "message": message.get("message"),
                     "dateCreated": message.get("datecreated"),
                     "type": message.get("type"),
-                    "agentid": response.get("agentid", [None])[i],
-                    "tags": response.get("tags", [None])[i]
+                    "agentid": agentids[i] if i < len(agentids) else None,
+                    "tags": tags_list[i] if i < len(tags_list) else None
                 })
 
     return pd.DataFrame(all_messages)
