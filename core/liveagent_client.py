@@ -1,6 +1,7 @@
 import os
 import time
 import requests
+import pandas as pd
 from config import config
 
 def ping() -> bool:
@@ -19,19 +20,20 @@ def tickets() -> dict:
         "owner_email": [],
         "owner_name": [],
         "date_created": [],
-        "agentid": []
+        "agentid": [],
+        "subject": []
     }
 
+    MAX_PAGES = 2
     page = 1
-    per_page = config.ticket_payload["_perPage"]
 
-    while True:
+    while page <= MAX_PAGES:
         payload = config.ticket_payload.copy()
         payload["_page"] = page
 
         response = requests.get(
             url=config.tickets_list_url,
-            params=config.ticket_payload,
+            params=payload,
             headers=config.headers
         )
 
@@ -41,9 +43,9 @@ def tickets() -> dict:
         if isinstance(tickets, dict):
             tickets = tickets.get("data", [])
 
-        print(f"Fetched {len(tickets)} tickets from page {page}.")
-        elapsed = time.time() - start_time
-        print(f"Time elapsed: {elapsed:.2f} seconds")
+        if not tickets:
+            print(f"No tickets found on page {page}.")
+            break
 
         for ticket in tickets:
             tickets_dict['id'].append(ticket.get("id"))
@@ -53,9 +55,10 @@ def tickets() -> dict:
             tickets_dict['owner_name'].append(ticket.get("owner_name"))
             tickets_dict['date_created'].append(ticket.get("date_created"))
             tickets_dict['agentid'].append(ticket.get("agentid"))
+            tickets_dict['subject'].append(ticket.get("subject"))
 
-        if len(tickets) < per_page:
-            break
+        elapsed = time.time() - start_time
+        print(f"Time elapsed: {elapsed:.2f} seconds")
 
         page += 1
 
@@ -64,16 +67,23 @@ def tickets() -> dict:
 
     return tickets_dict
 
-def get_ticket_messages(response: dict):
-
+def get_ticket_messages(response: dict) -> pd.DataFrame:
+    MAX_PAGES = 5
+    all_messages = []
     start_time = time.time()
     for k, ticket_ids in response.items():
         if k == "id":
             for ticket_id in ticket_ids:
                 page = 1
-                per_page = config.messages_payload["_perPage"]
 
-                while True:
+                try:
+                    idx = response["id"].index(ticket_id)
+
+                except ValueError:
+                    print(f"Ticket ID {ticket_id} not found in response['id']")
+                    continue
+
+                while page <= MAX_PAGES:
                     payload = config.messages_payload.copy()
                     payload["_page"] = page
                     url = f"{config.tickets_list_url}/{ticket_id}/messages"
@@ -81,7 +91,7 @@ def get_ticket_messages(response: dict):
 
                     get_ticket = requests.get(
                         url=url,
-                        params=config.messages_payload,
+                        params=payload,
                         headers=config.headers
                     )
                     get_ticket.raise_for_status()
@@ -94,22 +104,27 @@ def get_ticket_messages(response: dict):
                         print(f"No messages found for ticket ID {ticket_id}")
                         break
 
-                    for msg_ctr, item in enumerate(messages_data, start=1):
+                    for item in messages_data:
                         messages = item.get('messages', [])
-                        print(item)
                         for message in messages:
-                            print(f"Message #{msg_ctr}")
-                            print(f"ID: {message['id']}")
-                            print(f"Message: {message['message']}")
-                            print(f"----\n")
+                            all_messages.append({
+                                "ticket_id": ticket_id,
+                                "owner_name": response.get("owner_name", [None])[idx],
+                                "message_id": message.get("id"),
+                                "subject": response.get("subject", [None])[idx],
+                                "message": message.get("message"),
+                                "dateCreated": message.get("datecreated"),
+                                "type": message.get("type"),
+                                "agentid": response.get("agentid", [None])[idx],
+                                "tags": response.get("tags", [None])[idx]
+                            })
 
                     elapsed = time.time() - start_time
                     print(f"Time elapsed: {elapsed:.2f} seconds\n")
                     
-                    if len(messages_data) < per_page:
-                        break
-
                     page += 1
 
     total_elapsed_time = time.time() - start_time
     print(f"Finished fetching all messages. Total time: {total_elapsed_time:.2f} seconds.")
+    messages_df = pd.DataFrame(all_messages)
+    return messages_df
