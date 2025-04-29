@@ -5,7 +5,6 @@ if __name__ == "__main__":
     if success:
         all_tickets = tickets()
         df = get_ticket_messages(all_tickets)
-        print(df.head())
         print(df)
         df.to_csv("out.csv", index=False)
     else:

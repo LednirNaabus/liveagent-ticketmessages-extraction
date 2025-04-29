@@ -16,12 +16,12 @@ filters = json.dumps([[
 ]])
 ticket_payload = {
     "_page": 1,
-    "_perPage": 1000,
+    "_perPage": 10,
     "_filters": filters
 }
 messages_payload = {
     "_page": 1,
-    "_perPage": 1000
+    "_perPage": 10
 }
 headers = {
     'accept': 'application/json',
