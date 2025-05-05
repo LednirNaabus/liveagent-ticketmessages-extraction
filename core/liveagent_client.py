@@ -95,7 +95,7 @@ def get_ticket_messages(response: dict, max_pages: int = 5) -> pd.DataFrame:
                     "dateCreated": message.get("datecreated"),
                     "type": message.get("type"),
                     "agentid": agentids[i] if i < len(agentids) else None,
-                    "tags": tags_list[i] if i < len(tags_list) else None
+                    "tags": tags_list
                 })
 
     return pd.DataFrame(all_messages)

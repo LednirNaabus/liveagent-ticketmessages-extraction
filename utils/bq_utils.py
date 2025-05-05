@@ -10,7 +10,7 @@ def get_client():
     return {
         'client': config.BQ_CLIENT,
         'credentials': config.creds,
-        'project_id': config.creds.project_id
+        'project_id': config.creds['project_id']
     }
 
 def ensure_dataset(project_id: str, dataset_name: str, client: bigquery.Client):

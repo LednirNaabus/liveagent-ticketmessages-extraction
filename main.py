@@ -1,5 +1,6 @@
 import argparse
 from core.liveagent_client import tickets, get_ticket_messages, ping
+from utils.bq_utils import load_data_to_bq, generate_schema
 from config import config
 
 def parse_arguments():
@@ -29,7 +30,11 @@ if __name__ == "__main__":
         all_tickets = tickets(max_pages=args.max_pages)
         df = get_ticket_messages(all_tickets, max_pages=args.max_pages)
         print(df)
-        df.to_csv("out.csv", index=False)
+        file_name = f"out-{config.filters[25:35]}.csv"
+        df.to_csv(file_name, index=False)
+        schema = generate_schema(df)
+        print("Loading data to BigQuery...")
+        load_data_to_bq(df, config.GCLOUD_PROJECT_ID, config.BQ_DATASET_NAME, config.BQ_TABLE_NAME, "WRITE_APPEND", schema=schema)
     else:
         print("Error API:")
         print(res)

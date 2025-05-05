@@ -12,7 +12,7 @@ API_KEY = os.getenv("API_KEY")
 base_url = "https://mechanigo.ladesk.com/api/v3"
 tickets_list_url = f"{base_url}/tickets"
 filters = json.dumps([[
-    "date_created", "D>", "2025-01-01 00:00:00"
+    "date_created", "D>", "2025-02-01 00:00:00"
 ]])
 ticket_payload = {
     "_page": 1,
@@ -32,8 +32,14 @@ headers = {
 GOOGLE_API_CREDS_DIR = os.path.dirname(os.path.abspath(__file__))
 GOOGLE_API_CREDS = os.path.join(GOOGLE_API_CREDS_DIR, 'google-api-key.json')
 
+CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
+config_path = os.path.join(CONFIG_DIR, 'config.json')
+
 with open(GOOGLE_API_CREDS, 'r') as file:
     creds = json.load(file)
+
+with open(config_path, 'r') as file:
+    json_config = json.load(file)
 
 SCOPE = [
     'https://www.googleapis.com/auth/bigquery'
@@ -48,6 +54,6 @@ bq_config = {
     "table_name": "liveagent_messages"
 }
 
-GCLOUD_PROJECT_ID = bq_config["project_id"]
-BQ_DATASET_NAME = bq_config["dataset_name"]
-BQ_TABLE_NAME = bq_config["table_name"]
+GCLOUD_PROJECT_ID = json_config.get('BIGQUERY')['project_id']
+BQ_DATASET_NAME = json_config.get('BIGQUERY')['dataset_name']
+BQ_TABLE_NAME = json_config.get('BIGQUERY')['table_name']
