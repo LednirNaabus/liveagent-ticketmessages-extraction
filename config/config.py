@@ -12,9 +12,10 @@ API_KEY = os.getenv("API_KEY")
 base_url = "https://mechanigo.ladesk.com/api/v3"
 tickets_list_url = f"{base_url}/tickets"
 agents_list_url = f"{base_url}/agents"
-filters = json.dumps([[
-    "date_created", "DP", "LM"
-]])
+filters = json.dumps([
+    ["date_created", "D>=", "2025-04-01 00:00:00"],
+    ["date_created", "D<=", "2025-04-30 23:59:59"]
+])
 ticket_payload = {
     "_page": 1,
     "_perPage": 10,
