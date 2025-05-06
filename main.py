@@ -1,5 +1,5 @@
 import argparse
-from core.liveagent_client import tickets, get_ticket_messages, ping
+from core.liveagent_client import tickets, get_ticket_messages, ping, agents
 from utils.bq_utils import load_data_to_bq, generate_schema
 from config import config
 
@@ -28,7 +28,11 @@ if __name__ == "__main__":
         config.messages_payload["_perPage"] = args.per_page
 
         all_tickets = tickets(max_pages=args.max_pages)
-        df = get_ticket_messages(all_tickets, max_pages=args.max_pages)
+        agents = agents()
+        agent_lookup = {
+            agent_id: name for agent_id, name in zip(agents["id"], agents["name"])
+        }
+        df = get_ticket_messages(all_tickets, agent_lookup=agent_lookup, max_pages=args.max_pages)
         print(df)
         file_name = f"out-{config.filters[25:35]}.csv"
         df.to_csv(file_name, index=False)
