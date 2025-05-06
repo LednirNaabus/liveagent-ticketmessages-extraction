@@ -36,7 +36,7 @@ if __name__ == "__main__":
         df = get_ticket_messages(all_tickets, agent_lookup=agent_lookup, max_pages=args.max_pages)
         df['dateCreated'] = pd.to_datetime(df['dateCreated'], errors='coerce')
         print(df)
-        file_name = f"April_2025.csv"
+        file_name = f"{config.filters[26:36]}.csv"
         df.to_csv(file_name, index=False)
         schema = generate_schema(df)
         print("Loading data to BigQuery...")
