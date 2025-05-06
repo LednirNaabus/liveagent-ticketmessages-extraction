@@ -34,7 +34,7 @@ if __name__ == "__main__":
         }
         df = get_ticket_messages(all_tickets, agent_lookup=agent_lookup, max_pages=args.max_pages)
         print(df)
-        file_name = f"out-{config.filters[25:35]}.csv"
+        file_name = f"out-2025.csv"
         df.to_csv(file_name, index=False)
         schema = generate_schema(df)
         print("Loading data to BigQuery...")
