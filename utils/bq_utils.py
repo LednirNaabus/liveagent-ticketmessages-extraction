@@ -55,11 +55,17 @@ def generate_schema(df: pd.DataFrame) -> List[SchemaField]:
         else:
             fields = ()
         
-        type = "RECORD" if fields else TYPE_MAPPING.get(dtype.kind)
+        # type = "RECORD" if fields else TYPE_MAPPING.get(dtype.kind)
+        if fields:
+            field_type = "RECORD"
+        elif pd.api.types.is_datetime64_any_dtype(dtype):
+            field_type = "TIMESTAMP"
+        else:
+            field_type = TYPE_MAPPING.get(dtype.kind, "STRING")
         schema.append(
             SchemaField(
                 name=column,
-                field_type=type,
+                field_type=field_type,
                 mode=mode,
                 fields=fields,
             )
