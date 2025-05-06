@@ -53,7 +53,7 @@ def tickets(max_pages: int = 5) -> dict:
 
     for ticket in ticket_data:
         tickets_dict['id'].append(ticket.get("id"))
-        tickets_dict['tags'].extend(ticket.get("tags", []))
+        tickets_dict['tags'].append(ticket.get("tags", []))
         tickets_dict['owner_contactid'].append(ticket.get("owner_contactid"))
         tickets_dict['owner_email'].append(ticket.get("owner_email"))
         tickets_dict['owner_name'].append(ticket.get("owner_name"))
@@ -63,7 +63,33 @@ def tickets(max_pages: int = 5) -> dict:
 
     return tickets_dict
 
-def get_ticket_messages(response: dict, max_pages: int = 5) -> pd.DataFrame:
+def agents(max_pages: int = 5) -> dict:
+    payload = {
+        "_page": 1,
+        "_perPage": 5
+    }
+    agents_data = paginate(
+        url=config.agents_list_url,
+        payload=payload,
+        max_pages=max_pages,
+        headers=config.headers
+    )
+    agents_dict = {
+        "id": [],
+        "name": [],
+        "email": [],
+        "status": []
+    }
+
+    for agent in agents_data:
+        agents_dict['id'].append(agent.get("id"))
+        agents_dict['name'].append(agent.get("name"))
+        agents_dict['email'].append(agent.get("email"))
+        agents_dict['status'].append(agent.get("status"))
+
+    return agents_dict
+
+def get_ticket_messages(response: dict, agent_lookup: dict, max_pages: int = 5) -> pd.DataFrame:
     all_messages = []
 
     ticket_ids = response.get("id", [])
@@ -86,6 +112,7 @@ def get_ticket_messages(response: dict, max_pages: int = 5) -> pd.DataFrame:
         for item in messages_data:
             messages = item.get("messages", [])
             for message in messages:
+                agent_id = agentids[i] if i < len(agentids) else None
                 all_messages.append({
                     "ticket_id": ticket_id,
                     "owner_name": owner_names[i] if i < len(owner_names) else None,
@@ -94,8 +121,9 @@ def get_ticket_messages(response: dict, max_pages: int = 5) -> pd.DataFrame:
                     "message": message.get("message"),
                     "dateCreated": message.get("datecreated"),
                     "type": message.get("type"),
-                    "agentid": agentids[i] if i < len(agentids) else None,
-                    "tags": tags_list
+                    "agentid": agent_id,
+                    "agent_name": agent_lookup.get(agent_id),
+                    "tags": ','.join(tags_list[i]) if i < len(tags_list) else None
                 })
 
     return pd.DataFrame(all_messages)
