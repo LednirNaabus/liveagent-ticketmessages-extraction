@@ -62,6 +62,8 @@ async def async_tickets(session, max_pages: int = 5) -> dict:
         "date_created": [],
         "agentid": [],
         "subject": [],
+        "status": [],
+        "channel_type": [],
     }
 
     for ticket in ticket_data:
@@ -74,6 +76,8 @@ async def async_tickets(session, max_pages: int = 5) -> dict:
         tickets_dict['date_created'].append(ticket.get("date_created"))
         tickets_dict['agentid'].append(ticket.get("agentid"))
         tickets_dict['subject'].append(ticket.get("subject"))
+        tickets_dict['status'].append(ticket.get("status"))
+        tickets_dict['channel_type'].append(ticket.get("channel_type"))
 
     return tickets_dict
 
@@ -104,7 +108,7 @@ async def async_agents(session, max_pages: int = 5) -> dict:
 
     return agents_dict
 
-async def get_ticket_messages_for_one(session, ticket_id, code, owner_name, subject, agent_id, tags, agent_lookup, max_pages):
+async def get_ticket_messages_for_one(session, ticket_id, code, owner_name, subject, agent_id, status, channel_type, tags, agent_lookup, max_pages):
     url = f"{config.tickets_list_url}/{ticket_id}/messages"
     payload = config.messages_payload.copy()
     
@@ -142,6 +146,8 @@ async def get_ticket_messages_for_one(session, ticket_id, code, owner_name, subj
                 "dateCreated": message.get("dateCreated"),
                 "type": msg_type,
                 "agentid": agent_id,
+                "status": status,
+                "channel_type": channel_type,
                 "agent_name": agent_lookup.get(agent_id),
                 "sender_name": sender,
                 "receiver_type": receiver_type,
@@ -157,6 +163,8 @@ async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int 
     agentids = response.get("agentid", [])
     tags_list = response.get("tags", [])
     code = response.get("code", [])
+    status = response.get("status", [])
+    channel_type = response.get("channel_type", [])
 
     async with aiohttp.ClientSession() as session:
         tasks = []
@@ -168,6 +176,8 @@ async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int 
                 owner_names[i] if i < len(owner_names) else None,
                 subjects[i] if i < len(subjects) else None,
                 agentids[i] if i < len(agentids) else None,
+                status[i] if i < len(status) else None,
+                channel_type[i] if i < len(channel_type) else None,
                 tags_list[i] if i < len(tags_list) else None,
                 agent_lookup,
                 max_pages
