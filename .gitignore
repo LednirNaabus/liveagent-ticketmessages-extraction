@@ -1,4 +1,5 @@
 __pycache__/
+csv/
 __init__.py
 .env
 *.csv
@@ -9,3 +10,6 @@ env/
 google-api-key.json
 config.json
 export.py
+main_test.py
+testing.py
+testing1.py

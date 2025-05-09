@@ -1,39 +1,51 @@
-import requests
+import asyncio
+import aiohttp
 import pandas as pd
-from tqdm import tqdm
+from tqdm.asyncio import tqdm_asyncio
 from config import config
 
-def ping() -> bool:
-    response = requests.get(
-        url=f"{config.base_url}/ping"
-    )
-    return response.status_code == 200, response
+# For API rate limits
+# From LiveAgent API Documentation:
+# The API rate limit is set right now to 180 requests per minute, counted for each API key separately.
+sem = asyncio.Semaphore(2) # 2 concurrent request muna at a time
+THROTTLE_DELAY = 0.4 # for rate control; (180 requests/min = 1 request every ~0.33s)
 
-def paginate(url: str, payload: dict, max_pages: int, headers: dict) -> list:
+async def async_ping(session) -> tuple[bool, dict]:
+    try:
+        async with session.get(f"{config.base_url}/ping") as response:
+            status_ok = response.status == 200
+            response_json = await response.json()
+            return status_ok, response_json
+    except aiohttp.ClientError as e:
+        print(f"Ping failed: {e}")
+        return False, {}
+
+async def async_paginate(session, url: str, payload: dict, max_pages: int, headers: dict) -> list:
     all_data = []
     page = 1
-    
+
     while page <= max_pages:
         payload["_page"] = page
-
-        response = requests.get(url=url, params=payload, headers=headers)
-        response.raise_for_status()
-        data = response.json()
+        async with sem:
+            await asyncio.sleep(THROTTLE_DELAY)
+            async with session.get(url, params=payload, headers=headers) as res:
+                res.raise_for_status()
+                data = await res.json()
 
         if isinstance(data, dict):
             data = data.get("data", [])
 
         if not data:
             break
-
+        
         all_data.extend(data)
         page += 1
 
     return all_data
 
-def tickets(max_pages: int = 5) -> dict:
-
-    ticket_data = paginate(
+async def async_tickets(session, max_pages: int = 5) -> dict:
+    ticket_data = await async_paginate(
+        session=session,
         url=config.tickets_list_url,
         payload=config.ticket_payload.copy(),
         max_pages=max_pages,
@@ -48,7 +60,7 @@ def tickets(max_pages: int = 5) -> dict:
         "owner_name": [],
         "date_created": [],
         "agentid": [],
-        "subject": []
+        "subject": [],
     }
 
     for ticket in ticket_data:
@@ -63,12 +75,13 @@ def tickets(max_pages: int = 5) -> dict:
 
     return tickets_dict
 
-def agents(max_pages: int = 5) -> dict:
+async def async_agents(session, max_pages: int = 5) -> dict:
     payload = {
         "_page": 1,
         "_perPage": 5
     }
-    agents_data = paginate(
+    agents_data = await async_paginate(
+        session=session,
         url=config.agents_list_url,
         payload=payload,
         max_pages=max_pages,
@@ -89,41 +102,59 @@ def agents(max_pages: int = 5) -> dict:
 
     return agents_dict
 
-def get_ticket_messages(response: dict, agent_lookup: dict, max_pages: int = 5) -> pd.DataFrame:
-    all_messages = []
+async def get_ticket_messages_for_one(session, ticket_id, owner_name, subject, agent_id, tags, agent_lookup, max_pages):
+    url = f"{config.tickets_list_url}/{ticket_id}/messages"
+    payload = config.messages_payload.copy()
+    
+    messages_data = await async_paginate(
+        session=session,
+        url=url,
+        payload=payload,
+        headers=config.headers,
+        max_pages=max_pages
+    )
 
+    ticket_messages = []
+    for item in messages_data:
+        messages = item.get("messages", [])
+        for message in messages:
+            ticket_messages.append({
+                "ticket_id": ticket_id,
+                "owner_name": owner_name,
+                "message_id": message.get("id"),
+                "subject": subject,
+                "message": message.get("message"),
+                "dateCreated": message.get("datecreated"),
+                "type": message.get("type"),
+                "agentid": agent_id,
+                "agent_name": agent_lookup.get(agent_id),
+                "tags": ','.join(tags) if tags else None
+            })
+    
+    return ticket_messages
+
+async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int = 5) -> pd.DataFrame:
     ticket_ids = response.get("id", [])
     owner_names = response.get("owner_name", [])
     subjects = response.get("subject", [])
     agentids = response.get("agentid", [])
     tags_list = response.get("tags", [])
 
-    for i, ticket_id in enumerate(tqdm(ticket_ids, desc="Fetching ticket messages")):
-        # Uncomment this one if gusto makita anong ticket ID ang nagpprocess
-        # tqdm.write(f"Fetching ticket ID: {ticket_id}")
-        url = f"{config.tickets_list_url}/{ticket_id}/messages"
-        messages_data = paginate(
-            url=url,
-            payload=config.messages_payload.copy(),
-            headers=config.headers,
-            max_pages=max_pages
-        )
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for i, ticket_id in enumerate(ticket_ids):
+            tasks.append(get_ticket_messages_for_one(
+                session,
+                ticket_id,
+                owner_names[i] if i < len(owner_names) else None,
+                subjects[i] if i < len(subjects) else None,
+                agentids[i] if i < len(agentids) else None,
+                tags_list[i] if i < len(tags_list) else None,
+                agent_lookup,
+                max_pages
+            ))
 
-        for item in messages_data:
-            messages = item.get("messages", [])
-            for message in messages:
-                agent_id = agentids[i] if i < len(agentids) else None
-                all_messages.append({
-                    "ticket_id": ticket_id,
-                    "owner_name": owner_names[i] if i < len(owner_names) else None,
-                    "message_id": message.get("id"),
-                    "subject": subjects[i] if i < len(subjects) else None,
-                    "message": message.get("message"),
-                    "dateCreated": message.get("datecreated"),
-                    "type": message.get("type"),
-                    "agentid": agent_id,
-                    "agent_name": agent_lookup.get(agent_id),
-                    "tags": ','.join(tags_list[i]) if i < len(tags_list) else None
-                })
-
+        results = await tqdm_asyncio.gather(*tasks, desc="Fetching ticket messages")
+    
+    all_messages = [msg for sublist in results for msg in sublist]
     return pd.DataFrame(all_messages)
