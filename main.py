@@ -26,7 +26,7 @@ def parse_arguments():
         help="Number of records to fetch per page (default: 10, per page is '_perPage' in LiveAgent API)"
     )
     parser.add_argument(
-        "--skip_bq", "-sq",
+        "--skip_bq", "-sbq",
         action="store_true",
         help="Skip loading data to BigQuery"
     )
@@ -78,6 +78,7 @@ async def process_range(session, args, start_str: str, end_str: str):
     if args.ids:
         ticket_ids = {
             "ticket_id": [],
+            "code": [],
             "owner_name": [],
             "date_created": [],
         }
@@ -86,6 +87,7 @@ async def process_range(session, args, start_str: str, end_str: str):
 
         for i in tqdm(range(len(tickets_data["id"])), desc="Processing ticket IDs"):
             ticket_ids["ticket_id"].append(tickets_data["id"][i])
+            ticket_ids["code"].append(tickets_data["code"][i])
             ticket_ids["owner_name"].append(tickets_data["owner_name"][i])
             ticket_ids["date_created"].append(tickets_data["date_created"][i])
 

@@ -55,6 +55,7 @@ async def async_tickets(session, max_pages: int = 5) -> dict:
     tickets_dict = {
         "id": [],
         "tags": [],
+        "code": [],
         "owner_contactid": [],
         "owner_email": [],
         "owner_name": [],
@@ -66,6 +67,7 @@ async def async_tickets(session, max_pages: int = 5) -> dict:
     for ticket in ticket_data:
         tickets_dict['id'].append(ticket.get("id"))
         tickets_dict['tags'].append(ticket.get("tags", []))
+        tickets_dict['code'].append(ticket.get("code", []))
         tickets_dict['owner_contactid'].append(ticket.get("owner_contactid"))
         tickets_dict['owner_email'].append(ticket.get("owner_email"))
         tickets_dict['owner_name'].append(ticket.get("owner_name"))
@@ -102,7 +104,7 @@ async def async_agents(session, max_pages: int = 5) -> dict:
 
     return agents_dict
 
-async def get_ticket_messages_for_one(session, ticket_id, owner_name, subject, agent_id, tags, agent_lookup, max_pages):
+async def get_ticket_messages_for_one(session, ticket_id, code, owner_name, subject, agent_id, tags, agent_lookup, max_pages):
     url = f"{config.tickets_list_url}/{ticket_id}/messages"
     payload = config.messages_payload.copy()
     
@@ -118,19 +120,34 @@ async def get_ticket_messages_for_one(session, ticket_id, owner_name, subject, a
     for item in messages_data:
         messages = item.get("messages", [])
         for message in messages:
+            msg_userid = message.get("userid")
+            msg_type = message.get("type")
+
+            sender = agent_lookup.get(msg_userid) if msg_userid in agent_lookup else owner_name
+
+            if msg_userid in agent_lookup:
+                receiver_type = "Customer"
+                receiver_name = owner_name
+            else:
+                receiver_type = "Agent"
+                receiver_name = agent_lookup.get(agent_id)
+
             ticket_messages.append({
                 "ticket_id": ticket_id,
+                "code": code,
                 "owner_name": owner_name,
                 "message_id": message.get("id"),
                 "subject": subject,
                 "message": message.get("message"),
-                "dateCreated": message.get("datecreated"),
-                "type": message.get("type"),
+                "dateCreated": message.get("dateCreated"),
+                "type": msg_type,
                 "agentid": agent_id,
                 "agent_name": agent_lookup.get(agent_id),
+                "sender_name": sender,
+                "receiver_type": receiver_type,
+                "receiver_name": receiver_name,
                 "tags": ','.join(tags) if tags else None
             })
-    
     return ticket_messages
 
 async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int = 5) -> pd.DataFrame:
@@ -139,6 +156,7 @@ async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int 
     subjects = response.get("subject", [])
     agentids = response.get("agentid", [])
     tags_list = response.get("tags", [])
+    code = response.get("code", [])
 
     async with aiohttp.ClientSession() as session:
         tasks = []
@@ -146,6 +164,7 @@ async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int 
             tasks.append(get_ticket_messages_for_one(
                 session,
                 ticket_id,
+                code[i] if i < len(code) else None,
                 owner_names[i] if i < len(owner_names) else None,
                 subjects[i] if i < len(subjects) else None,
                 agentids[i] if i < len(agentids) else None,
