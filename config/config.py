@@ -50,12 +50,6 @@ SCOPE = [
 google_creds = service_account.Credentials.from_service_account_info(creds, scopes=SCOPE)
 BQ_CLIENT = bigquery.Client(credentials=google_creds, project=google_creds.project_id)
 
-bq_config = {
-    "project_id": "absolute-gantry-363408",
-    "dataset_name": "mechanigo_liveagent",
-    "table_name": "liveagent_messages"
-}
-
 GCLOUD_PROJECT_ID = json_config.get('BIGQUERY')['project_id']
 BQ_DATASET_NAME = json_config.get('BIGQUERY')['dataset_name']
 BQ_TABLE_NAME = json_config.get('BIGQUERY')['table_name']
