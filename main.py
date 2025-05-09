@@ -30,7 +30,7 @@ def parse_arguments():
         help="Skip loading data to BigQuery"
     )
     parser.add_argument(
-        "--ids",
+        "--ids", "-i",
         action="store_true",
         help="Only fetch ticket IDs and skip ticket messages"
     )
