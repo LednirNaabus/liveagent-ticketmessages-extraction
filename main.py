@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import aiohttp
 import pandas as pd
+from tqdm import tqdm
 from datetime import datetime, timedelta
 
 from config import config
@@ -75,13 +76,22 @@ async def process_range(session, args, start_str: str, end_str: str):
     tickets_data = await async_tickets(session, max_pages=args.max_pages)
 
     if args.ids:
-        ticket_ids = pd.DataFrame({
-            "ticket_id": tickets_data["id"],
-            "owner_name": tickets_data["owner_name"],
-            "date_created": tickets_data["date_created"]
-        })
+        ticket_ids = {
+            "ticket_id": [],
+            "owner_name": [],
+            "date_created": [],
+        }
+
+        print(f"Saving ticket IDs from {start_str} to {end_str}...")
+
+        for i in tqdm(range(len(tickets_data["id"])), desc="Processing ticket IDs"):
+            ticket_ids["ticket_id"].append(tickets_data["id"][i])
+            ticket_ids["owner_name"].append(tickets_data["owner_name"][i])
+            ticket_ids["date_created"].append(tickets_data["date_created"][i])
+
+        df = pd.DataFrame(ticket_ids)
         file_name = os.path.join("csv", f"ticket_ids_{start_str}_to_{end_str}.csv")
-        ticket_ids.to_csv(file_name, index=False)
+        df.to_csv(file_name, index=False)
         print(f"Saved ticket IDs to file: {file_name}")
         return
 
