@@ -143,7 +143,7 @@ async def get_ticket_messages_for_one(session, ticket_id, code, owner_name, subj
                 "message_id": message.get("id"),
                 "subject": subject,
                 "message": message.get("message"),
-                "dateCreated": message.get("dateCreated"),
+                "datecreated": message.get("datecreated"),
                 "type": msg_type,
                 "agentid": agent_id,
                 "status": status,

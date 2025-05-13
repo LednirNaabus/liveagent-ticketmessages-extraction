@@ -101,7 +101,7 @@ async def process_range(session, args, start_str: str, end_str: str):
     agent_lookup = dict(zip(agents_data["id"], agents_data["name"]))
 
     df = await fetch_all_messages(tickets_data, agent_lookup, max_pages=args.max_pages)
-    df["dateCreated"] = pd.to_datetime(df["dateCreated"], errors="coerce")
+    df["datecreated"] = pd.to_datetime(df["datecreated"], errors="coerce")
 
     file_name = os.path.join("csv", f"messages_{start_str}_to_{end_str}.csv")
     df.to_csv(file_name, index=False)
