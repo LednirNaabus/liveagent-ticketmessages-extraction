@@ -1,5 +1,6 @@
 __pycache__/
 csv/
+misc/
 __init__.py
 .env
 *.csv
