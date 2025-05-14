@@ -19,7 +19,7 @@ def ensure_dataset(project_id: str, dataset_name: str, client: bigquery.Client):
         client.get_dataset(dataset_id)
     except NotFound:
         dataset = bigquery.Dataset(dataset_id)
-        dataset.location = "US"
+        dataset.location = "asia-southeast1"
         client.create_dataset(dataset, timeout=30)
         print(f"Created dataset '{dataset_id}'")
 
