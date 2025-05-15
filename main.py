@@ -95,6 +95,16 @@ async def process_range(session, args, start_str: str, end_str: str):
         file_name = os.path.join("csv", f"ticket_ids_{start_str}_to_{end_str}.csv")
         df.to_csv(file_name, index=False)
         print(f"Saved ticket IDs to file: {file_name}")
+        print("Generating schema and uploading to BigQuery...")
+        schema = generate_schema(df)
+        load_data_to_bq(
+            df,
+            config.GCLOUD_PROJECT_ID,
+            config.BQ_DATASET_NAME,
+            config.BQ_TABLE_NAME,
+            "WRITE_APPEND",
+            schema=schema
+        )
         return
 
     agents_data = await async_agents(session)
