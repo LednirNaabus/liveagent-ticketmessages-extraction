@@ -43,14 +43,20 @@ async def async_paginate(session, url: str, payload: dict, max_pages: int, heade
 
     return all_data
 
-async def async_tickets(session, max_pages: int = 5) -> dict:
+# Generic get list of tickets
+async def fetch_tickets(session, payload: dict, max_pages: int = 5) -> dict:
     ticket_data = await async_paginate(
         session=session,
         url=config.tickets_list_url,
-        payload=config.ticket_payload.copy(),
+        payload=payload,
         max_pages=max_pages,
         headers=config.headers
     )
+
+    field_keys = [
+        'id', 'tags', 'code', 'owner_contactid', 'owner_email', 'owner_name',
+        'date_created', 'agentid', 'subject', 'status', 'channel_type'
+    ]
 
     tickets_dict = {
         "id": [],
@@ -59,7 +65,7 @@ async def async_tickets(session, max_pages: int = 5) -> dict:
         "owner_contactid": [],
         "owner_email": [],
         "owner_name": [],
-        "date_created": [],
+        "ticket_date_created": [],
         "agentid": [],
         "subject": [],
         "status": [],
@@ -67,19 +73,25 @@ async def async_tickets(session, max_pages: int = 5) -> dict:
     }
 
     for ticket in ticket_data:
-        tickets_dict['id'].append(ticket.get("id"))
-        tickets_dict['tags'].append(ticket.get("tags", []))
-        tickets_dict['code'].append(ticket.get("code", []))
-        tickets_dict['owner_contactid'].append(ticket.get("owner_contactid"))
-        tickets_dict['owner_email'].append(ticket.get("owner_email"))
-        tickets_dict['owner_name'].append(ticket.get("owner_name"))
-        tickets_dict['date_created'].append(ticket.get("date_created"))
-        tickets_dict['agentid'].append(ticket.get("agentid"))
-        tickets_dict['subject'].append(ticket.get("subject"))
-        tickets_dict['status'].append(ticket.get("status"))
-        tickets_dict['channel_type'].append(ticket.get("channel_type"))
+        for key in field_keys:
+            dest_key = "ticket_date_created" if key == "date_created" else key
+            default_value = [] if key in ["tags", "code"] else None
+            tickets_dict[dest_key].append(ticket.get(key, default_value))
 
     return tickets_dict
+
+# Generic get list of tickets
+async def async_tickets(session, max_pages: int = 5) -> dict:
+    return await fetch_tickets(session, config.ticket_payload.copy(), max_pages)
+
+# Fetch tickets but with custom payload
+async def async_tickets_filtered(session, payload: dict, max_pages: int = 5) -> dict:
+    return await fetch_tickets(session, payload, max_pages)
+
+async def tickets_by_date(session, date_str: str, max_pages: int = 5) -> dict:
+    payload = config.ticket_payload.copy()
+    payload["date_created"] = date_str
+    return await fetch_tickets(session, payload, max_pages)
 
 async def async_agents(session, max_pages: int = 5) -> dict:
     payload = {
@@ -108,7 +120,7 @@ async def async_agents(session, max_pages: int = 5) -> dict:
 
     return agents_dict
 
-async def get_ticket_messages_for_one(session, ticket_id, code, owner_name, subject, agent_id, status, channel_type, tags, agent_lookup, max_pages):
+async def get_ticket_messages_for_one(session, ticket_id, ticket_date_created, code, owner_name, subject, agent_id, status, channel_type, tags, agent_lookup, max_pages):
     url = f"{config.tickets_list_url}/{ticket_id}/messages"
     payload = config.messages_payload.copy()
     
@@ -144,6 +156,7 @@ async def get_ticket_messages_for_one(session, ticket_id, code, owner_name, subj
                 "subject": subject,
                 "message": message.get("message"),
                 "datecreated": message.get("datecreated"),
+                "ticket_date_created": ticket_date_created,
                 "type": msg_type,
                 "agentid": agent_id,
                 "status": status,
@@ -158,6 +171,7 @@ async def get_ticket_messages_for_one(session, ticket_id, code, owner_name, subj
 
 async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int = 5) -> pd.DataFrame:
     ticket_ids = response.get("id", [])
+    ticket_date_created = response.get("ticket_date_created", [])
     owner_names = response.get("owner_name", [])
     subjects = response.get("subject", [])
     agentids = response.get("agentid", [])
@@ -172,6 +186,7 @@ async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int 
             tasks.append(get_ticket_messages_for_one(
                 session,
                 ticket_id,
+                ticket_date_created[i] if i < len(ticket_date_created) else None,
                 code[i] if i < len(code) else None,
                 owner_names[i] if i < len(owner_names) else None,
                 subjects[i] if i < len(subjects) else None,
