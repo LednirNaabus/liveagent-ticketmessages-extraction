@@ -40,6 +40,11 @@ python main.py -mp [max_pages] -pp [per_page] --start_date [YYYY-MM-DD] --end_da
 ```
 Where `--start_date` and `--end_date` is the date range you want to extract from. Both expects an input in the following format: `YYYY-MM-DD`. Alias is `-sd` and `-ed` respectively. This flag is **required**.
 
+## Extract from one date only
+```
+python main.py -mp [max_pages] -pp [per_page] -d [YYYY-MM-DD]
+```
+
 ## ID only
 ```
 python main.py -mp [max_pages] -pp [per_page] --start_date [YYYY-MM-DD] --end_date [YYYY-MM-DD] --ids
@@ -52,11 +57,22 @@ python main.py -mp [max_pages] -pp [per_page] --start_date [YYYY-MM-DD] --end_da
 ```
 Split the extraction into weeks. Use this flag when you expect the API to return a large number of tickets within the given date range. This helps avoid rate limiting issues by breaking down the data retrieval into smaller, manageable weekly chunks.
 
+## Save to CSV
+```
+python main.py -mp [max_pages] -pp [per_page] --start_date [YYYY-MM-DD] --end_date [YYYY-MM-DD] --weekly --csv
+```
+Save the extracted data to a `.csv` file.
+
 ## Full example:
 ```
 python main.py --max_pages 10 --per_page 100 --start_date 2025-01-01 --end_date 2025-01-31 --weekly
 ```
 The example will extract data in weekly intervals from January 01, 2025 to January 31, 2025, using a maximum of 10 pages per request and 100 items per page. The absence of `--ids` indicate that all tickets and ticket messages will be extracted. Further, `--skip_bq` isn't used indicating that the retrieved data will be uploaded to BigQuery.
+
+```
+python main.py --max_pages 100 --per_page 100 --date 2025-01-01
+```
+Similarly, the command above extracts all data for the date of January 01, 2025.
 
 ## Configuration
 In the event you want to modify filters when making a request to the LiveAgent API, go to `config/config.py` and edit the `filters` variable.
