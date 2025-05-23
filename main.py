@@ -36,21 +36,29 @@ def parse_arguments():
         help="Only fetch ticket IDs and skip ticket messages"
     )
     parser.add_argument(
+        "--date", "-d",
+        type=str,
+        help="[OPTIONAL] Use this only to fetch for a specific day (YYYY-MM-DD)"
+    )
+    parser.add_argument(
         "--start_date", "-sd",
         type=str,
-        help="[REQUIRED] Start date (YYYY-MM-DD)",
-        required=True
+        help="[REQUIRED] Start date (YYYY-MM-DD)"
     )
     parser.add_argument(
         "--end_date", "-ed",
         type=str,
-        help="[REQUIRED] End date (YYYY-MM-DD)",
-        required=True
+        help="[REQUIRED] End date (YYYY-MM-DD)"
     )
     parser.add_argument(
         "--weekly", "-w",
         action="store_true",
         help="Split into weekly"
+    )
+    parser.add_argument(
+        "--csv", "-c",
+        action="store_true",
+        help="Store data into csv file"
     )
     return parser.parse_args()
 
@@ -71,6 +79,20 @@ def set_date_filter(start_str: str, end_str: str):
         ["date_created", "D<=", f"{end_str} 23:59:59"]
     ])
 
+def drop_cols(df: pd.DataFrame):
+    try:
+        cols_to_drop = ['message_id', 'type', 'agentid']
+        existing = [col for col in cols_to_drop if col in df.columns]
+
+        if existing:
+            df.drop(columns=existing, axis=1, inplace=True)
+        else:
+            pass
+    except Exception as e:
+        print(df.columns)
+        print(f"Exception: {e}")
+    return df
+
 async def process_range(session, args, start_str: str, end_str: str):
     config.ticket_payload["_filters"] = set_date_filter(start_str, end_str)
     tickets_data = await async_tickets(session, max_pages=args.max_pages)
@@ -89,22 +111,27 @@ async def process_range(session, args, start_str: str, end_str: str):
             ticket_ids["ticket_id"].append(tickets_data["id"][i])
             ticket_ids["code"].append(tickets_data["code"][i])
             ticket_ids["owner_name"].append(tickets_data["owner_name"][i])
-            ticket_ids["date_created"].append(tickets_data["date_created"][i])
+            ticket_ids["date_created"].append(tickets_data["ticket_date_created"][i])
 
         df = pd.DataFrame(ticket_ids)
-        file_name = os.path.join("csv", f"ticket_ids_{start_str}_to_{end_str}.csv")
-        df.to_csv(file_name, index=False)
-        print(f"Saved ticket IDs to file: {file_name}")
-        print("Generating schema and uploading to BigQuery...")
-        schema = generate_schema(df)
-        load_data_to_bq(
-            df,
-            config.GCLOUD_PROJECT_ID,
-            config.BQ_DATASET_NAME,
-            config.BQ_TABLE_NAME,
-            "WRITE_APPEND",
-            schema=schema
-        )
+        df = drop_cols(df)
+
+        if args.csv:
+            file_name = os.path.join("csv", f"ticket_ids_{start_str}_to_{end_str}.csv")
+            df.to_csv(file_name, index=False)
+            print(f"Saved ticket IDs to file: {file_name}")
+
+        if not args.skip_bq:
+            print("Generating schema and uploading to BigQuery...")
+            schema = generate_schema(df)
+            load_data_to_bq(
+                df,
+                config.GCLOUD_PROJECT_ID,
+                config.BQ_DATASET_NAME,
+                config.BQ_TABLE_NAME,
+                "WRITE_APPEND",
+                schema=schema
+            )
         return
 
     agents_data = await async_agents(session)
@@ -112,10 +139,12 @@ async def process_range(session, args, start_str: str, end_str: str):
 
     df = await fetch_all_messages(tickets_data, agent_lookup, max_pages=args.max_pages)
     df["datecreated"] = pd.to_datetime(df["datecreated"], errors="coerce")
+    df = drop_cols(df)
 
-    file_name = os.path.join("csv", f"messages_{start_str}_to_{end_str}.csv")
-    df.to_csv(file_name, index=False)
-    print(f"Saved output to: {file_name}")
+    if args.csv:
+        file_name = os.path.join("csv", f"messages_{start_str}_to_{end_str}.csv")
+        df.to_csv(file_name, index=False)
+        print(f"Saved output to: {file_name}")
     
     if not args.skip_bq:
         print("Generating schema and uploading to BigQuery...")
@@ -132,14 +161,21 @@ async def process_range(session, args, start_str: str, end_str: str):
 async def main():
     args = parse_arguments()
 
+    if not args.date and (not args.start_date or not args.end_date):
+        print("Error: You must provide either --date or both --start_date and --end_date.")
+        return
+
     config.ticket_payload["_page"] = args.max_pages
     config.ticket_payload["_perPage"] = args.per_page
     config.messages_payload["_perPage"] = args.per_page
 
     os.makedirs("csv", exist_ok=True)
 
-    start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
-    end_date = datetime.strptime(args.end_date, "%Y-%m-%d")
+    if args.date:
+        start_date = end_date = datetime.strptime(args.date, "%Y-%m-%d")
+    else:
+        start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
+        end_date = datetime.strptime(args.end_date, "%Y-%m-%d")
 
     async with aiohttp.ClientSession() as session:
         success, ping_response = await async_ping(session)
@@ -159,7 +195,7 @@ async def main():
         else:
             start_str = start_date.strftime("%Y-%m-%d")
             end_str = end_date.strftime("%Y-%m-%d")
-            await process_range(session, args, args.start_date, args.end_date)
+            await process_range(session, args, start_str, end_str)
 
 if __name__ == "__main__":
     asyncio.run(main())
