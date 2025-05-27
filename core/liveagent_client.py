@@ -10,7 +10,18 @@ from config import config
 sem = asyncio.Semaphore(2) # 2 concurrent request muna at a time
 THROTTLE_DELAY = 0.4 # for rate control; (180 requests/min = 1 request every ~0.33s)
 
-async def async_ping(session) -> tuple[bool, dict]:
+async def async_ping(session: aiohttp.ClientSession) -> tuple[bool, dict]:
+    """
+    Checks if LiveAgent API is responding. See: [LiveAgent API](https://mechanigo.ladesk.com/docs/api/v3/#/ping/ping) for reference.
+
+    Parameters:
+        - session (`aiohttp.ClientSession`) - the client session
+
+    Returns:
+        tuple[bool, dict]:
+            - The status code and JSON response if the API responds accordingly.
+            - Otherwise, returns a Boolean False and an empty dictionary.
+    """
     try:
         async with session.get(f"{config.base_url}/ping") as response:
             status_ok = response.status == 200
@@ -20,7 +31,24 @@ async def async_ping(session) -> tuple[bool, dict]:
         print(f"Ping failed: {e}")
         return False, {}
 
-async def async_paginate(session, url: str, payload: dict, max_pages: int, headers: dict) -> list:
+async def async_paginate(session: aiohttp.ClientSession, url: str, payload: dict, max_pages: int, headers: dict) -> list:
+    """
+    Accepts a max number of pages and loops through until it reaches the last page. Utilizes `asyncio.sleep()` and `asyncio.Semaphore()`
+    which helps make concurrent requests at a time (for rate limiting issues).
+
+    **Note**: According to LiveAgent API, the API rate limit is 180 requests per minute, counted for each API key separately.
+
+    Parameters:
+        - session (`aiohttp.ClientSession`) - the client session
+        - url (`str`) - the API url
+        - payload (`str`) - expects a dictionary; the params accepted by the API endpoint
+        - max_pages (`int`) - the max number of pages you want to paginate through
+        - headers (`dict`) - the header of the request to the API
+
+    Returns:
+        list:
+            - A list of data fetched from the LiveAgent API.
+    """
     all_data = []
     page = 1
 
@@ -43,8 +71,16 @@ async def async_paginate(session, url: str, payload: dict, max_pages: int, heade
 
     return all_data
 
-# Generic get list of tickets
-async def fetch_tickets(session, payload: dict, max_pages: int = 5) -> dict:
+async def fetch_tickets(session: aiohttp.ClientSession, payload: dict, max_pages: int = 5) -> dict:
+    """
+    The function that interacts with the `/tickets` endpoint of the LiveAgent API. Uses `async_paginate()`
+    to loop through a certain number of pages and stores the data in a dictionary.
+
+    Parameters:
+        - session (`aiohttp.ClientSession`) - the client session
+        - payload (`dict`) - dictionary of parameters to send with the request for filtering or modifying the ticket query
+        - max_pages (`int`) - maximum number of pages to retrieve; default is 5
+    """
     ticket_data = await async_paginate(
         session=session,
         url=config.tickets_list_url,
@@ -80,20 +116,65 @@ async def fetch_tickets(session, payload: dict, max_pages: int = 5) -> dict:
 
     return tickets_dict
 
-# Generic get list of tickets
-async def async_tickets(session, max_pages: int = 5) -> dict:
+async def async_tickets(session: aiohttp.ClientSession, max_pages: int = 5) -> dict:
+    """
+    Fetches tickets using a **default** payload configuration defined in `config.ticket_payload`.
+
+    Parameters:
+        - session (`aiohttp.ClientSession`) - the client session
+        - max_pages (`int`) - the maximum number of pages to retrieve; default is 5
+
+    Returns:
+        dict:
+            - A dictionary containing list of extracted ticket fields
+    """
     return await fetch_tickets(session, config.ticket_payload.copy(), max_pages)
 
-# Fetch tickets but with custom payload
-async def async_tickets_filtered(session, payload: dict, max_pages: int = 5) -> dict:
+async def async_tickets_filtered(session: aiohttp.ClientSession, payload: dict, max_pages: int = 5) -> dict:
+    """
+    Fetches tickets with a **user-provided** payload for custom filtering.
+
+    Parameters:
+        - session (`aiohttp.ClientSession`) - the client session
+        - payload (`dict`) - custom parameters for fetching tickets
+        - max_pages (`int`) - maximum number of pages to retrieve; default is 5
+
+    Returns:
+        dict:
+            - a dictionary containing list of extracted ticket fields
+    """
     return await fetch_tickets(session, payload, max_pages)
 
-async def tickets_by_date(session, date_str: str, max_pages: int = 5) -> dict:
+async def tickets_by_date(session: aiohttp.ClientSession, date_str: str, max_pages: int = 5) -> dict:
+    """
+    Fetches tickets filtered by a specific creation date.
+
+    Parameters:
+        - session (`aiohttp.ClientSession`) - the client session
+        - date_str (`str`) - the date string to filter tickets by (format: `YYYY-MM-DD`)
+        - max_pages (`int`) - maximum number of pages to retrieve; default is 5
+
+    Returns:
+        dict:
+            - dictionary containing list of extracted ticket fields
+    """
     payload = config.ticket_payload.copy()
     payload["date_created"] = date_str
     return await fetch_tickets(session, payload, max_pages)
 
-async def async_agents(session, max_pages: int = 5) -> dict:
+async def async_agents(session: aiohttp.ClientSession, max_pages: int = 5) -> dict:
+    """
+    Interacts with the `/agents` endpoint from the LiveAgent API to cross reference agent IDs. Gathers the
+    agent ID, name, email, and status then stores them in a dictionary.
+
+    Parameters:
+        - session (`aiohttp.ClientSession`) - the client session
+        - max_pages (`int`) - maximum number of pages to retrieve; default is 5
+
+    Returns:
+        dict:
+            - a dictionary of ID, name, email and status for each agent
+    """
     payload = {
         "_page": 1,
         "_perPage": 5
@@ -120,7 +201,28 @@ async def async_agents(session, max_pages: int = 5) -> dict:
 
     return agents_dict
 
-async def get_ticket_messages_for_one(session, ticket_id, ticket_date_created, code, owner_name, subject, agent_id, status, channel_type, tags, agent_lookup, max_pages):
+async def get_ticket_messages_for_one(session: aiohttp.ClientSession, ticket_id: str, ticket_date_created: str, code: str, owner_name: str, subject: str, agent_id: str, status: str, channel_type: str, tags: str, agent_lookup: str, max_pages: int = 5) -> list:
+    """
+    Interacts with the `/ticket/{ticket_id}/messages` endpoint of the LiveAgent API. It loops through
+    each page for the tickets and extracts the ticket's messages.
+
+    Parameters:
+        - session (`aiohttp.ClientSession`) - the client session
+        - ticket_id (`str`) - the unique ticket ID
+        - ticket_date_created (`str`) - date creation of the ticket
+        - code (`str`) - code for the ticket
+        - owner_name (`str`) - the owner of the ticket
+        - subject (`str`) - the subject of the ticket
+        - agent_id (`str`) - the agent ID for the ticket
+        - status (`str`) - whether or not the ticket has been resolved
+        - channel_type (`str`) - the ticket channel type
+        - agent_lookup (`str`) - used to cross reference the agent ID
+        - max_pages (`int`) - maximum number of pages to retrieve; default is 5
+
+    Returns:
+        list:
+            - list of ticket messages
+    """
     url = f"{config.tickets_list_url}/{ticket_id}/messages"
     payload = config.messages_payload.copy()
     
@@ -170,6 +272,18 @@ async def get_ticket_messages_for_one(session, ticket_id, ticket_date_created, c
     return ticket_messages
 
 async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int = 5) -> pd.DataFrame:
+    """
+    Fetches all messages for each ticket ID.
+
+    Parameters:
+        - response (`dict`) - expects the data from `/tickets` endpoint.
+        - agent_lookup (`dict`) - used to cross reference the agent ID
+        - max_pages (`int`) - maximum number of pages to retrieve; default is 5
+
+    Returns:
+        pd.DataFrame:
+            - a DataFrame of all messages for the ticket
+    """
     ticket_ids = response.get("id", [])
     ticket_date_created = response.get("ticket_date_created", [])
     owner_names = response.get("owner_name", [])

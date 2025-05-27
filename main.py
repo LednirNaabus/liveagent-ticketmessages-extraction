@@ -12,6 +12,12 @@ from utils.bq_utils import generate_schema, load_data_to_bq
 from core.liveagent_client import async_ping, async_agents, async_tickets, fetch_all_messages
 
 def parse_arguments():
+    """
+    Defines and parses the command-line arguments for the script. Use `-h` to output the help page.
+
+    Returns:
+        - `argparse.Namespace` - an object containing the values of the parsed command-line arguments
+    """
     parser = argparse.ArgumentParser(description="Fetch tickets and messages using LiveAgent API.")
     parser.add_argument(
         "--max_pages", "-mp",
@@ -63,6 +69,18 @@ def parse_arguments():
     return parser.parse_args()
 
 def get_date(start_date, end_date, days=7):
+    """
+    Generates a list of date ranges (as tuples), which breaks a given date range into smaller chunks accessible as attributes.
+
+    Parameters:
+        - start_date (`datetime.date`) - the start of the overall date range
+        - end_date (`datetime.date`) - the end of the overall date range
+        - days (`int`) - the number of days in each chunk; default is 7
+
+    Returns:
+        `List[Tuple[datetime.date, datetime.date]]`:
+        - a list of tuples, each containing a start and end date representing a chunk of the original date range
+    """
     chunks = []
     current = start_date
 
@@ -74,6 +92,18 @@ def get_date(start_date, end_date, days=7):
     return chunks
 
 def set_date_filter(start_str: str, end_str: str):
+    """
+    Sets the filter of the API request, specifically the date range.
+
+    Parameters:
+        - start_str (`str`) - the starting date
+        - end_str (`str`) - the ending date
+
+    Returns:
+        JSON:
+            - A JSON string representing the date filter. The string is directly assigned to the
+            `_filters` parameter in the API payload.
+    """
     return json.dumps([
         ["date_created", "D>=", f"{start_str} 00:00:00"],
         ["date_created", "D<=", f"{end_str} 23:59:59"]
@@ -94,6 +124,20 @@ def drop_cols(df: pd.DataFrame):
     return df
 
 async def process_range(session, args, start_str: str, end_str: str):
+    """
+    Processes a range of dates by fetching ticket data from the API. It either fetches only ticket IDs
+    or detailed messages depending on the command-line arguments provided when running the program. The output
+    is saved to a CSV file and optionally uploaded to BigQuery with an auto-generated schema.
+
+    Parameters:
+        - session (`aiohttp.ClientSession`) - the client session
+        - args (`argparse.Namespace`) - the parsed command-line arguments containing options like `max_pages`, `ids`, or `skip_bq`
+        - start_str (`start_str`) - the start date of the range to process in string format
+        - end_str (`end_str`) - the end date of the range to process in string format
+    
+    Returns:
+        None
+    """
     config.ticket_payload["_filters"] = set_date_filter(start_str, end_str)
     tickets_data = await async_tickets(session, max_pages=args.max_pages)
 
@@ -159,6 +203,9 @@ async def process_range(session, args, start_str: str, end_str: str):
         )
 
 async def main():
+    """
+    Main entry point for the program.
+    """
     args = parse_arguments()
 
     if not args.date and (not args.start_date or not args.end_date):
