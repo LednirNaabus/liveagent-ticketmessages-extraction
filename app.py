@@ -1,3 +1,4 @@
+import os
 import logging
 from core.extract_tags import extract_and_load_tags
 from fastapi import FastAPI, HTTPException
@@ -33,4 +34,4 @@ async def update_tags():
         }
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 8080)))
