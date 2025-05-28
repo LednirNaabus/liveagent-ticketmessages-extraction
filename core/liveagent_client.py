@@ -329,23 +329,18 @@ async def fetch_tags(session: aiohttp.ClientSession) -> dict:
     print("inside fetch_tags()")
     print(data)
 
-    tags_dict = {
-        "id": [],
-        "name": [],
-        "color": [],
-        "background_color": [],
-        "is_public": [],
-        "is_archived": []
-    }
+    tags_list = []
 
-    for tags in data:
-        tags_dict['id'].append(tags.get("id"))
-        tags_dict['name'].append(tags.get("name"))
-        tags_dict['color'].append(tags.get("color"))
-        tags_dict['background_color'].append(tags.get("background_color"))
-        tags_dict['is_public'].append(tags.get("is_public"))
-        tags_dict['is_archived'].append(tags.get("is_archived"))
+    for tag in data:
+        tags_list.append({
+            "id": tag.get("id"),
+            "name": tag.get("name"),
+            "color": tag.get("color"),
+            "background_color": tag.get("background_color"),
+            "is_public": tag.get("is_public"),
+            "is_archived": tag.get("is_archived"),
+        })
 
-    print(tags_dict)
+    print(tags_list)
 
-    return tags_dict
+    return tags_list
