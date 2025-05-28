@@ -25,7 +25,12 @@ async def update_tags():
     try:
         print("Running extract_and_load_tags()")
         r = await extract_and_load_tags()
+        print("Result: ", r)
         print("Done running.")
+        if isinstance(r, dict):
+            for k in r:
+                if k is None or not isinstance(k, str):
+                    print(f"Invalid key in response: {k} (type: {type(k)})")
         return r
     except Exception as e:
         return {
