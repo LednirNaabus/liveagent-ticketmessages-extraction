@@ -34,7 +34,8 @@ CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
 config_path = os.path.join(CONFIG_DIR, 'config.json')
 
 # Google
-creds = json.loads(os.getenv('CREDENTIALS'))
+with open(os.getenv('CREDENTIALS')) as f:
+    creds = json.load(f)
 
 with open(config_path, 'r') as file:
     json_config = json.load(file)
