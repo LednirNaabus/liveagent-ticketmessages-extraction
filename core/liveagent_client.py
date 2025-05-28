@@ -353,6 +353,7 @@ async def fetch_tags(session: aiohttp.ClientSession) -> dict:
             data = await res.json()
             print("Raw data:", data)
     except Exception as e:
+        print(data)
         print("Error in fetch_tags:", e)
         raise
 
