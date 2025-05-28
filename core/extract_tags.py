@@ -16,6 +16,7 @@ async def extract_and_load_tags():
             exit(1)
 
         print(f"Ping to {config.base_url} successful.")
+        print(config.creds)
 
         tags = await fetch_tags(session)
         print(tags)
