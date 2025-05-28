@@ -1,0 +1,7 @@
+{
+    "BIGQUERY": {
+        "project_id": "mechanigo-liveagent",
+        "dataset_name": "conversations",
+        "table_name": "tags"
+    }
+}

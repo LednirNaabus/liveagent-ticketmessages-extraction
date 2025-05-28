@@ -28,7 +28,7 @@ async def extract_and_load_tags():
             df,
             config.GCLOUD_PROJECT_ID,
             config.BQ_DATASET_NAME,
-            "tags2",
+            config.BQ_TABLE_NAME,
             "WRITE_TRUNCATE",
             schema
         )
