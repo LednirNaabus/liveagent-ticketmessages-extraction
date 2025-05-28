@@ -1,7 +1,8 @@
 import os
 import logging
 from core.extract_tags import extract_and_load_tags
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
@@ -26,20 +27,22 @@ async def update_tags():
     Finally, it is loaded to BigQuery.
     """
     try:
-        print("Running extract_and_load_tags()")
-        r = await extract_and_load_tags()
-        print("Result: ", r)
-        print("Done running.")
-        if isinstance(r, dict):
-            for k in r:
-                if k is None or not isinstance(k, str):
-                    print(f"Invalid key in response: {k} (type: {type(k)})")
-        return ensure_string_keys(r)
+        # print("Running extract_and_load_tags()")
+        # r = await extract_and_load_tags()
+        # print("Result: ", r)
+        # print("Done running.")
+        # if isinstance(r, dict):
+        #     r = ensure_string_keys(r)
+        # elif isinstance(r, list):
+        #     r = [ensure_string_keys(item) if isinstance(item, dict) else item for item in r]
+        # return r
+        tags_dict = await extract_and_load_tags()
+        return JSONResponse(content=ensure_string_keys(tags_dict))
     except Exception as e:
-        return {
+        return JSONResponse(content={
             'error': str(e),
             'status': 'error'
-        }
+        })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 8080)))

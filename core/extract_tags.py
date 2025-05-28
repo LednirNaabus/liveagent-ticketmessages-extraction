@@ -23,7 +23,6 @@ async def extract_and_load_tags():
         print(tags)
         df = pd.DataFrame(tags)
         print(df)
-        df.to_csv("tags.csv", index=False)
 
         print("Generating schema...")
         schema = generate_schema(df)
