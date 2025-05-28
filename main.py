@@ -3,6 +3,7 @@ import json
 import argparse
 import asyncio
 import aiohttp
+import pytz
 import pandas as pd
 from tqdm import tqdm
 from datetime import datetime, timedelta
@@ -10,6 +11,8 @@ from datetime import datetime, timedelta
 from config import config
 from utils.bq_utils import generate_schema, load_data_to_bq
 from core.liveagent_client import async_ping, async_agents, async_tickets, fetch_all_messages
+
+manila_tz = pytz.timezone('Asia/Manila')
 
 def parse_arguments():
     """
@@ -109,6 +112,11 @@ def set_date_filter(start_str: str, end_str: str):
         ["date_created", "D<=", f"{end_str} 23:59:59"]
     ])
 
+def set_timezone(df: pd.DataFrame, column: str, target_tz: str) -> pd.DataFrame:
+    df[column] = pd.to_datetime(df[column], errors="coerce").dt.tz_localize('UTC')
+    df[column] = df[column].apply(lambda x: x.astimezone(target_tz) if pd.notnull(x) else x)
+    return df
+
 def drop_cols(df: pd.DataFrame):
     try:
         cols_to_drop = ['message_id', 'type', 'agentid']
@@ -147,6 +155,7 @@ async def process_range(session, args, start_str: str, end_str: str):
             "code": [],
             "owner_name": [],
             "date_created": [],
+            "tags": []
         }
 
         print(f"Saving ticket IDs from {start_str} to {end_str}...")
@@ -156,8 +165,10 @@ async def process_range(session, args, start_str: str, end_str: str):
             ticket_ids["code"].append(tickets_data["code"][i])
             ticket_ids["owner_name"].append(tickets_data["owner_name"][i])
             ticket_ids["date_created"].append(tickets_data["ticket_date_created"][i])
+            ticket_ids["tags"].append(','.join(tickets_data["tags"][i]))
 
         df = pd.DataFrame(ticket_ids)
+        df = set_timezone(df, "date_created", manila_tz)
         df = drop_cols(df)
 
         if args.csv:
@@ -182,7 +193,8 @@ async def process_range(session, args, start_str: str, end_str: str):
     agent_lookup = dict(zip(agents_data["id"], agents_data["name"]))
 
     df = await fetch_all_messages(tickets_data, agent_lookup, max_pages=args.max_pages)
-    df["datecreated"] = pd.to_datetime(df["datecreated"], errors="coerce")
+    df = set_timezone(df, "datecreated", manila_tz)
+    df = set_timezone(df, "ticket_date_created", manila_tz)
     df = drop_cols(df)
 
     if args.csv:
