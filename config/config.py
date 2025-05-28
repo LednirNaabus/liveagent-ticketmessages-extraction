@@ -31,8 +31,8 @@ headers = {
 }
 
 # Google stuff
-GOOGLE_API_CREDS_DIR = os.path.dirname(os.path.abspath(__file__))
-GOOGLE_API_CREDS = os.path.join(GOOGLE_API_CREDS_DIR, 'google-api-key.json')
+# GOOGLE_API_CREDS_DIR = os.path.dirname(os.path.abspath(__file__))
+# GOOGLE_API_CREDS = os.path.join(GOOGLE_API_CREDS_DIR, 'google-api-key.json')
 
 CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
 config_path = os.path.join(CONFIG_DIR, 'config.json')
