@@ -43,6 +43,9 @@ async def update_tags():
         # return r
 
         tags_dict = await extract_and_load_tags()
+        for k in tags_dict.keys():
+            if not isinstance(k, str):
+                print(f"Invalid key: {k} ({type(k)})")
         return JSONResponse(content=ensure_string_keys(tags_dict))
     except Exception as e:
         return JSONResponse(content={
