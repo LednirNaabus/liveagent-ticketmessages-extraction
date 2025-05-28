@@ -18,6 +18,7 @@ async def extract_and_load_tags():
         print(f"Ping to {config.base_url} successful.")
 
         tags = await fetch_tags(session)
+        print(tags)
         df = pd.DataFrame(tags)
         df.to_csv("tags.csv", index=False)
 

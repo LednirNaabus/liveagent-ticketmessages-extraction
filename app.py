@@ -22,7 +22,9 @@ async def update_tags():
     Finally, it is loaded to BigQuery.
     """
     try:
+        print("Running extract_and_load_tags()")
         r = await extract_and_load_tags()
+        print("Done running.")
         return r
     except Exception as e:
         return {
