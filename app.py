@@ -15,6 +15,9 @@ def root():
     """
     return {"message": "Hello World"}
 
+def ensure_string_keys(d: dict):
+    return {str(k): v for k, v in d.items()}
+
 @app.post("/mechanigo-liveagent/update-tags")
 async def update_tags():
     """
@@ -31,7 +34,7 @@ async def update_tags():
             for k in r:
                 if k is None or not isinstance(k, str):
                     print(f"Invalid key in response: {k} (type: {type(k)})")
-        return r
+        return ensure_string_keys(r)
     except Exception as e:
         return {
             'error': str(e),
