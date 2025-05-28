@@ -316,3 +316,31 @@ async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int 
     
     all_messages = [msg for sublist in results for msg in sublist]
     return pd.DataFrame(all_messages)
+
+async def fetch_tags(session: aiohttp.ClientSession) -> dict:
+
+    async with session.get(
+        url=f"{config.base_url}/tags",
+        headers=config.headers
+    ) as res:
+        res.raise_for_status()
+        data = await res.json()
+
+    tags_dict = {
+        "id": [],
+        "name": [],
+        "color": [],
+        "background_color": [],
+        "is_public": [],
+        "is_archived": []
+    }
+
+    for tags in data:
+        tags_dict['id'].append(tags.get("id"))
+        tags_dict['name'].append(tags.get("name"))
+        tags_dict['color'].append(tags.get("color"))
+        tags_dict['background_color'].append(tags.get("background_color"))
+        tags_dict['is_public'].append(tags.get("is_public"))
+        tags_dict['is_archived'].append(tags.get("is_archived"))
+
+    return tags_dict
