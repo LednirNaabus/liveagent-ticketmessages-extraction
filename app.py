@@ -1,6 +1,6 @@
 import os
 import logging
-from core.extract_tags import extract_and_load_tags
+from core.extract_tags import extract_and_load_tags, extract_tags_from_liveagent
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
@@ -15,14 +15,6 @@ def root():
     Home - for testing purposes.
     """
     return {"message": "Hello World"}
-
-def ensure_string_keys(obj):
-    if isinstance(obj, dict):
-        return {str(k) if k is not None else "null": ensure_string_keys(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [ensure_string_keys(item) for item in obj]
-    else:
-        return obj
 
 @app.post("/mechanigo-liveagent/update-tags")
 async def update_tags():
@@ -42,11 +34,8 @@ async def update_tags():
         #     r = [ensure_string_keys(item) if isinstance(item, dict) else item for item in r]
         # return r
 
-        tags_dict = await extract_and_load_tags()
-        for k in tags_dict.keys():
-            if not isinstance(k, str):
-                print(f"Invalid key: {k}")
-        return JSONResponse(content=ensure_string_keys(tags_dict))
+        tags = extract_and_load_tags()
+        return JSONResponse(tags)
     except Exception as e:
         return JSONResponse(content={
             'error': str(e),

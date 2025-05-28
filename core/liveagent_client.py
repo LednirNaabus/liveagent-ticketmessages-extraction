@@ -1,5 +1,6 @@
 import asyncio
 import aiohttp
+import requests
 import pandas as pd
 from tqdm.asyncio import tqdm_asyncio
 from config import config
@@ -317,7 +318,7 @@ async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int 
     all_messages = [msg for sublist in results for msg in sublist]
     return pd.DataFrame(all_messages)
 
-async def fetch_tags(session: aiohttp.ClientSession) -> dict:
+# async def fetch_tags(session: aiohttp.ClientSession) -> dict:
 
     # async with session.get(
     #     url=f"{config.base_url}/tags",
@@ -344,46 +345,59 @@ async def fetch_tags(session: aiohttp.ClientSession) -> dict:
     # print(tags_list)
 
     # return tags_list
+    # try:
+    #     async with session.get(
+    #         url=f"{config.base_url}/tags",
+    #         headers=config.headers
+    #     ) as res:
+    #         res.raise_for_status()
+    #         data = await res.json()
+    #         print("Raw data:", data)
+    # except Exception as e:
+    #     print("Error in fetch_tags:", e)
+    #     raise
+
+    # if not isinstance(data, list):
+    #     print("Unexpected data format:", type(data))
+    #     return []
+
+    # tags_dict = {
+    #     "id": [],
+    #     "name": [],
+    #     "color": [],
+    #     "background_color": [],
+    #     "is_public": [],
+    #     "is_archived": []
+    # }
+
+    # for tag in data:
+    #     if not isinstance(tag, dict):
+    #         print("Skipping invalid tag entry:", tag)
+    #         continue
+
+    #     # Filter out None keys before processing
+    #     cleaned_tag = {k: v for k, v in tag.items() if k is not None}
+    #     if len(cleaned_tag) != len(tag):
+    #         print(f"Removed None keys from tag: {tag}")
+
+    #     tags_dict["id"].append(cleaned_tag.get("id"))
+    #     tags_dict["name"].append(cleaned_tag.get("name"))
+    #     tags_dict["color"].append(cleaned_tag.get("color"))
+    #     tags_dict["background_color"].append(cleaned_tag.get("background_color"))
+    #     tags_dict["is_public"].append(cleaned_tag.get("is_public"))
+    #     tags_dict["is_archived"].append(cleaned_tag.get("is_archived"))
+
+    # return tags_dict
+def fetch_tags():
+    r = requests.get(
+        url=f"{config.base_url}",
+        headers=config.headers
+    )
+    r.raise_for_status()
     try:
-        async with session.get(
-            url=f"{config.base_url}/tags",
-            headers=config.headers
-        ) as res:
-            res.raise_for_status()
-            data = await res.json()
-            print("Raw data:", data)
+        df = pd.DataFrame(r.json())
+        # print(df)
+        return df
     except Exception as e:
-        print("Error in fetch_tags:", e)
+        print("Error: ", str(e))
         raise
-
-    if not isinstance(data, list):
-        print("Unexpected data format:", type(data))
-        return []
-
-    tags_dict = {
-        "id": [],
-        "name": [],
-        "color": [],
-        "background_color": [],
-        "is_public": [],
-        "is_archived": []
-    }
-
-    for tag in data:
-        if not isinstance(tag, dict):
-            print("Skipping invalid tag entry:", tag)
-            continue
-
-        # Filter out None keys before processing
-        cleaned_tag = {k: v for k, v in tag.items() if k is not None}
-        if len(cleaned_tag) != len(tag):
-            print(f"Removed None keys from tag: {tag}")
-
-        tags_dict["id"].append(cleaned_tag.get("id"))
-        tags_dict["name"].append(cleaned_tag.get("name"))
-        tags_dict["color"].append(cleaned_tag.get("color"))
-        tags_dict["background_color"].append(cleaned_tag.get("background_color"))
-        tags_dict["is_public"].append(cleaned_tag.get("is_public"))
-        tags_dict["is_archived"].append(cleaned_tag.get("is_archived"))
-
-    return tags_dict
