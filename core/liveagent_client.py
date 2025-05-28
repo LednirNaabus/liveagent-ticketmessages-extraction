@@ -326,6 +326,9 @@ async def fetch_tags(session: aiohttp.ClientSession) -> dict:
         res.raise_for_status()
         data = await res.json()
 
+    print("inside fetch_tags()")
+    print(data)
+
     tags_dict = {
         "id": [],
         "name": [],
@@ -342,5 +345,7 @@ async def fetch_tags(session: aiohttp.ClientSession) -> dict:
         tags_dict['background_color'].append(tags.get("background_color"))
         tags_dict['is_public'].append(tags.get("is_public"))
         tags_dict['is_archived'].append(tags.get("is_archived"))
+
+    print(tags_dict)
 
     return tags_dict

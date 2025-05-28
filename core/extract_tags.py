@@ -16,11 +16,13 @@ async def extract_and_load_tags():
             exit(1)
 
         print(f"Ping to {config.base_url} successful.")
-        print(config.creds)
+        print("Checkpoint")
 
+        # Stop
         tags = await fetch_tags(session)
         print(tags)
         df = pd.DataFrame(tags)
+        print(df)
         df.to_csv("tags.csv", index=False)
 
         print("Generating schema...")
