@@ -37,9 +37,9 @@ async def process_tickets_day():
 
         config.ticket_payload["_filters"] = set_filter(today_date, today_date)
         print(config.ticket_payload["_filters"])
-        tickets = await async_tickets_filtered(session, config.ticket_payload, 1)
+        tickets = await async_tickets_filtered(session, config.ticket_payload, 100)
 
-        messages_df = await fetch_all_messages(tickets, agents_lookup, 1)
+        messages_df = await fetch_all_messages(tickets, agents_lookup, 100)
         print(messages_df.keys())
         # columns to remove:
         # message_id, type, agent_id
