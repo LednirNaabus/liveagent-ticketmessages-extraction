@@ -42,7 +42,7 @@ def generate_schema(df: pd.DataFrame) -> List[SchemaField]:
         "O": "STRING",
         "S": "STRING",
         "U": "STRING",
-        "M": "TIMESTAMP",
+        "M": "DATETIME",
     }
 
     schema = []
@@ -59,7 +59,7 @@ def generate_schema(df: pd.DataFrame) -> List[SchemaField]:
         if fields:
             field_type = "RECORD"
         elif pd.api.types.is_datetime64_any_dtype(dtype):
-            field_type = "TIMESTAMP"
+            field_type = "DATETIME"
         else:
             field_type = TYPE_MAPPING.get(dtype.kind, "STRING")
         schema.append(
