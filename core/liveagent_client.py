@@ -373,14 +373,17 @@ async def fetch_tags(session: aiohttp.ClientSession) -> dict:
         if not isinstance(tag, dict):
             print("Skipping invalid tag entry:", tag)
             continue
-        for key in tag:
-            if key is None:
-                print("Found None key in:", tag)
-        tags_dict["id"].append(tag.get("id"))
-        tags_dict["name"].append(tag.get("name"))
-        tags_dict["color"].append(tag.get("color"))
-        tags_dict["background_color"].append(tag.get("background_color"))
-        tags_dict["is_public"].append(tag.get("is_public"))
-        tags_dict["is_archived"].append(tag.get("is_archived"))
+
+        # Filter out None keys before processing
+        cleaned_tag = {k: v for k, v in tag.items() if k is not None}
+        if len(cleaned_tag) != len(tag):
+            print(f"Removed None keys from tag: {tag}")
+
+        tags_dict["id"].append(cleaned_tag.get("id"))
+        tags_dict["name"].append(cleaned_tag.get("name"))
+        tags_dict["color"].append(cleaned_tag.get("color"))
+        tags_dict["background_color"].append(cleaned_tag.get("background_color"))
+        tags_dict["is_public"].append(cleaned_tag.get("is_public"))
+        tags_dict["is_archived"].append(cleaned_tag.get("is_archived"))
 
     return tags_dict
