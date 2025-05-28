@@ -9,7 +9,6 @@ test.py
 classic-token.txt
 env/
 google-api-key.json
-config.json
 export.py
 main_test.py
 testing.py
