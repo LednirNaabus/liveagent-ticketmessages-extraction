@@ -33,9 +33,7 @@ headers = {
 CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
 config_path = os.path.join(CONFIG_DIR, 'config.json')
 
-# creds = json.loads(os.getenv('CREDENTIALS'))
-with open(os.getenv("CREDENTIALS")) as file:
-    creds = json.load(file)
+creds = json.loads(os.getenv('CREDENTIALS'))
 
 with open(config_path, 'r') as file:
     json_config = json.load(file)
