@@ -256,5 +256,5 @@ async def main():
             end_str = end_date.strftime("%Y-%m-%d")
             await process_range(session, args, start_str, end_str)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# if __name__ == "__main__":
+asyncio.run(main())
