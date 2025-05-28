@@ -319,28 +319,68 @@ async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int 
 
 async def fetch_tags(session: aiohttp.ClientSession) -> dict:
 
-    async with session.get(
-        url=f"{config.base_url}/tags",
-        headers=config.headers
-    ) as res:
-        res.raise_for_status()
-        data = await res.json()
+    # async with session.get(
+    #     url=f"{config.base_url}/tags",
+    #     headers=config.headers
+    # ) as res:
+    #     res.raise_for_status()
+    #     data = await res.json()
 
-    print("inside fetch_tags()")
-    print(data)
+    # print("inside fetch_tags()")
+    # print(data)
 
-    tags_list = []
+    # tags_list = []
+
+    # for tag in data:
+    #     tags_list.append({
+    #         "id": tag.get("id"),
+    #         "name": tag.get("name"),
+    #         "color": tag.get("color"),
+    #         "background_color": tag.get("background_color"),
+    #         "is_public": tag.get("is_public"),
+    #         "is_archived": tag.get("is_archived"),
+    #     })
+
+    # print(tags_list)
+
+    # return tags_list
+    try:
+        async with session.get(
+            url=f"{config.base_url}/tags",
+            headers=config.headers
+        ) as res:
+            res.raise_for_status()
+            data = await res.json()
+            print("Raw data:", data)
+    except Exception as e:
+        print("Error in fetch_tags:", e)
+        raise
+
+    if not isinstance(data, list):
+        print("Unexpected data format:", type(data))
+        return []
+
+    tags_dict = {
+        "id": [],
+        "name": [],
+        "color": [],
+        "background_color": [],
+        "is_public": [],
+        "is_archived": []
+    }
 
     for tag in data:
-        tags_list.append({
-            "id": tag.get("id"),
-            "name": tag.get("name"),
-            "color": tag.get("color"),
-            "background_color": tag.get("background_color"),
-            "is_public": tag.get("is_public"),
-            "is_archived": tag.get("is_archived"),
-        })
+        if not isinstance(tag, dict):
+            print("Skipping invalid tag entry:", tag)
+            continue
+        for key in tag:
+            if key is None:
+                print("Found None key in:", tag)
+        tags_dict["id"].append(tag.get("id"))
+        tags_dict["name"].append(tag.get("name"))
+        tags_dict["color"].append(tag.get("color"))
+        tags_dict["background_color"].append(tag.get("background_color"))
+        tags_dict["is_public"].append(tag.get("is_public"))
+        tags_dict["is_archived"].append(tag.get("is_archived"))
 
-    print(tags_list)
-
-    return tags_list
+    return tags_dict

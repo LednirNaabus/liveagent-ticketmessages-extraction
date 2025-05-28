@@ -16,6 +16,14 @@ def root():
     """
     return {"message": "Hello World"}
 
+def ensure_string_keys(obj):
+    if isinstance(obj, dict):
+        return {str(k) if k is not None else "null": ensure_string_keys(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [ensure_string_keys(item) for item in obj]
+    else:
+        return obj
+
 @app.post("/mechanigo-liveagent/update-tags")
 async def update_tags():
     """
@@ -33,8 +41,9 @@ async def update_tags():
         # elif isinstance(r, list):
         #     r = [ensure_string_keys(item) if isinstance(item, dict) else item for item in r]
         # return r
+
         tags_dict = await extract_and_load_tags()
-        return JSONResponse(content=tags_dict)
+        return JSONResponse(content=ensure_string_keys(tags_dict))
     except Exception as e:
         return JSONResponse(content={
             'error': str(e),

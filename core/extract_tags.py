@@ -19,7 +19,12 @@ async def extract_and_load_tags():
         print("Checkpoint")
 
         # Stop
-        tags = await fetch_tags(session)
+        # tags = await fetch_tags(session)
+        try:
+            tags = await fetch_tags(session)
+        except Exception as e:
+            print("Error during fetch_tags():", str(e))
+            raise
         print(tags)
         df = pd.DataFrame(tags)
         print(df)
