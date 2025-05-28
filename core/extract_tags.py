@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 from config import config
 from utils.bq_utils import generate_schema, load_data_to_bq
-from core.liveagent_client import async_ping, fetch_tags
+from core.liveagent_client import fetch_tags
 
 # async def extract_and_load_tags():
 #     """

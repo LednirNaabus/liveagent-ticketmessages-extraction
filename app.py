@@ -1,6 +1,6 @@
 import os
 import logging
-from core.extract_tags import extract_and_load_tags, extract_tags_from_liveagent
+from core.extract_tags import extract_and_load_tags
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
