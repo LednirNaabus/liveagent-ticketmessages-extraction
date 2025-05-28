@@ -390,7 +390,7 @@ async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int 
     # return tags_dict
 def fetch_tags():
     r = requests.get(
-        url=f"{config.base_url}",
+        url=f"{config.base_url}/tags",
         headers=config.headers
     )
     r.raise_for_status()
