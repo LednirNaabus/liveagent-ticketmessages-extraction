@@ -37,8 +37,9 @@ GOOGLE_API_CREDS = os.path.join(GOOGLE_API_CREDS_DIR, 'google-api-key.json')
 CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
 config_path = os.path.join(CONFIG_DIR, 'config.json')
 
-with open(GOOGLE_API_CREDS, 'r') as file:
-    creds = json.load(file)
+# with open(GOOGLE_API_CREDS, 'r') as file:
+#     creds = json.load(file)
+creds = os.getenv('CREDENTIALS')
 
 with open(config_path, 'r') as file:
     json_config = json.load(file)
