@@ -59,4 +59,4 @@ def extract_and_load_tags():
         "WRITE_TRUNCATE",
         schema
     )
-    return tags_df
+    return tags_df.to_dict(orient="records")
