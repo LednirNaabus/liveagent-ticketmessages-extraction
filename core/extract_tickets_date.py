@@ -8,7 +8,7 @@ from config import config
 from utils.bq_utils import generate_schema, load_data_to_bq
 from core.liveagent_client import async_agents, async_tickets_filtered, fetch_all_messages, async_ping, async_tickets
 
-def set_filter(start: str, end: str):
+def set_filter(date: pd.Timestamp):
     """
     Sets the filter of the API request, specifically the date range.
 
@@ -21,9 +21,12 @@ def set_filter(start: str, end: str):
             - A JSON string representing the date filter. The string is directly assigned to the
             `_filters` parameter in the API payload.
     """
+    start = date - pd.Timedelta(hours=6)
+    start = start.floor('h') # flatten the hour i.e. 06:00:00
+    end = start + pd.Timedelta(hours=6) - pd.Timedelta(seconds=1)
     return json.dumps([
-        ["date_created", "D>=", f"{start} 00:00:00"],
-        ["date_created", "D<=", f"{end} 23:59:59"]
+        ["date_created", "D>=", f"{start}"],
+        ["date_created", "D<=", f"{end}"]
     ])
 
 def set_timezone(df: pd.DataFrame, *columns: str, target_tz: str) -> pd.DataFrame:
@@ -74,9 +77,9 @@ def drop_cols(df: pd.DataFrame) -> pd.DataFrame:
         print(f"Exception: {e}")
     return df
 
-async def extract_tickets(start: str, end: str):
+async def extract_tickets(date: pd.Timestamp):
     config.ticket_payload["_page"] = 100
-    config.ticket_payload["_filters"] = set_filter(start, end)
+    config.ticket_payload["_filters"] = set_filter(date)
 
     async with aiohttp.ClientSession() as session:
         success, ping_response = await async_ping(session)
@@ -107,6 +110,7 @@ async def extract_tickets(start: str, end: str):
 
             tickets_df = pd.DataFrame(ticket_ids)
             tickets_df = set_timezone(tickets_df, "date_created", target_tz=pytz.timezone('Asia/Manila'))
+            print(tickets_df["date_created"])
             tickets_df = drop_cols(tickets_df)
 
             # load to BQ
@@ -133,7 +137,7 @@ async def extract_ticket_messages():
     config.ticket_payload["_perPage"] = 100
     config.messages_payload["_perPage"] = 100
 
-    today_date = datetime.datetime.today().strftime("%Y-%m-%d")
+    today_date = pd.Timestamp.now().tz_localize('Asia/Manila')
     async with aiohttp.ClientSession() as session:
         success, ping_response = await async_ping(session)
         if not success:
@@ -145,7 +149,7 @@ async def extract_ticket_messages():
             agents = await async_agents(session)
             agents_lookup = dict(zip(agents["id"], agents["name"]))
 
-            config.ticket_payload["_filters"] = set_filter(today_date, today_date)
+            config.ticket_payload["_filters"] = set_filter(today_date)
             print(config.ticket_payload["_filters"])
             print("Extracting messages, this may take a while...")
             tickets = await async_tickets_filtered(session, config.ticket_payload, config.ticket_payload["_page"])

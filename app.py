@@ -1,6 +1,6 @@
 import os
 import logging
-import datetime
+import pandas as pd
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from core.extract_tags import extract_and_load_tags
@@ -42,8 +42,8 @@ async def update_tickets():
     It is then loaded to BigQuery.
     """
     try:
-        date = datetime.datetime.today().strftime("%Y-%m-%d")
-        tickets = await extract_tickets(date, date)
+        date = pd.Timestamp.now().tz_localize('Asia/Manila')
+        tickets = await extract_tickets(date)
         return JSONResponse(tickets)
     except Exception as e:
         return JSONResponse(content={
