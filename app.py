@@ -24,16 +24,6 @@ async def update_tags():
     Finally, it is loaded to BigQuery.
     """
     try:
-        # print("Running extract_and_load_tags()")
-        # r = await extract_and_load_tags()
-        # print("Result: ", r)
-        # print("Done running.")
-        # if isinstance(r, dict):
-        #     r = ensure_string_keys(r)
-        # elif isinstance(r, list):
-        #     r = [ensure_string_keys(item) if isinstance(item, dict) else item for item in r]
-        # return r
-
         tags = await extract_and_load_tags()
         return JSONResponse(tags)
     except Exception as e:
