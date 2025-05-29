@@ -388,16 +388,32 @@ async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int 
     #     tags_dict["is_archived"].append(cleaned_tag.get("is_archived"))
 
     # return tags_dict
-def fetch_tags():
-    r = requests.get(
+
+async def fetch_tags(session: aiohttp.ClientSession) -> pd.DataFrame:
+    async with session.get(
         url=f"{config.base_url}/tags",
         headers=config.headers
-    )
-    r.raise_for_status()
+    ) as res:
+        res.raise_for_status()
+        data = await res.json()
+
     try:
-        df = pd.DataFrame(r.json())
-        # print(df)
+        df = pd.DataFrame(data=data)
         return df
     except Exception as e:
-        print("Error: ", str(e))
+        print(f"Error: {str(e)}")
         raise
+
+# def fetch_tags():
+#     r = requests.get(
+#         url=f"{config.base_url}/tags",
+#         headers=config.headers
+#     )
+#     r.raise_for_status()
+#     try:
+#         df = pd.DataFrame(r.json())
+#         # print(df)
+#         return df
+#     except Exception as e:
+#         print("Error: ", str(e))
+#         raise
