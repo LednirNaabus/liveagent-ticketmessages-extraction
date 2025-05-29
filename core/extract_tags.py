@@ -17,7 +17,6 @@ async def extract_and_load_tags():
             exit(1)
 
         print(f"Ping to {config.base_url} successful.")
-        print("Checkpoint")
 
         try:
             tags = await fetch_tags(session)
