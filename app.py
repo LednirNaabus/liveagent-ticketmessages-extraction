@@ -34,7 +34,7 @@ async def update_tags():
         #     r = [ensure_string_keys(item) if isinstance(item, dict) else item for item in r]
         # return r
 
-        tags = extract_and_load_tags()
+        tags = await extract_and_load_tags()
         return JSONResponse(tags)
     except Exception as e:
         return JSONResponse(content={
