@@ -154,7 +154,6 @@ async def extract_ticket_messages():
 
             messages_df = await fetch_all_messages(tickets, agents_lookup, 100)
             messages_df = drop_cols(messages_df)
-
             messages_df = set_timezone(messages_df, "datecreated", "ticket_date_created", target_tz=pytz.timezone('Asia/Manila'))
 
             print("Generating schema...")
