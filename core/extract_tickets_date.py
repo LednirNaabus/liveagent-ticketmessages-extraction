@@ -1,7 +1,6 @@
 import pytz
 import json
 import aiohttp
-import datetime
 import pandas as pd
 from tqdm import tqdm
 from config import config
@@ -60,7 +59,7 @@ def format_date_col(df: pd.DataFrame, column: str, format: str = "%Y-%m-%d") -> 
         pd.DataFrame:
             - Newly formatted pandas DataFrame.
     """
-    df[column] = pd.to_datetime(df[column], errors="coerce").dt.strftime(format)
+    df[column] = df[column].dt.strftime(format)
     return df
 
 def drop_cols(df: pd.DataFrame) -> pd.DataFrame:
@@ -110,7 +109,6 @@ async def extract_tickets(date: pd.Timestamp):
 
             tickets_df = pd.DataFrame(ticket_ids)
             tickets_df = set_timezone(tickets_df, "date_created", target_tz=pytz.timezone('Asia/Manila'))
-            print(tickets_df["date_created"])
             tickets_df = drop_cols(tickets_df)
 
             # load to BQ
