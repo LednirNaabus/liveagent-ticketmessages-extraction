@@ -8,6 +8,7 @@ response.json
 test.py
 classic-token.txt
 env/
+config/config.json
 google-api-key.json
 export.py
 main_test.py
