@@ -20,8 +20,7 @@ def set_filter(date: pd.Timestamp):
             - A JSON string representing the date filter. The string is directly assigned to the
             `_filters` parameter in the API payload.
     """
-    start = date - pd.Timedelta(hours=6)
-    start = start.floor('h') # flatten the hour i.e. 06:00:00
+    start = date.floor('h') # flatten the hour i.e. 06:00:00
     end = start + pd.Timedelta(hours=6) - pd.Timedelta(seconds=1)
     return json.dumps([
         ["date_created", "D>=", f"{start}"],
@@ -76,7 +75,7 @@ def drop_cols(df: pd.DataFrame) -> pd.DataFrame:
         print(f"Exception: {e}")
     return df
 
-async def extract_tickets(date: pd.Timestamp):
+async def extract_tickets(date: pd.Timestamp, table_name: str):
     config.ticket_payload["_page"] = 100
     config.ticket_payload["_filters"] = set_filter(date)
 
@@ -111,6 +110,9 @@ async def extract_tickets(date: pd.Timestamp):
             tickets_df = set_timezone(tickets_df, "date_created", target_tz=pytz.timezone('Asia/Manila'))
             tickets_df = drop_cols(tickets_df)
 
+            print(tickets_df.head())
+            print(tickets_df["date_created"])
+
             # load to BQ
             print("Generating schema...")
             schema = generate_schema(tickets_df)
@@ -119,8 +121,8 @@ async def extract_tickets(date: pd.Timestamp):
                 tickets_df,
                 config.GCLOUD_PROJECT_ID,
                 config.BQ_DATASET_NAME,
-                config.TICKETS_TABLE,
-                "WRITE_TRUNCATE",
+                table_name,
+                "WRITE_APPEND",
                 schema
             )
 
@@ -130,7 +132,7 @@ async def extract_tickets(date: pd.Timestamp):
         except Exception as e:
             print(f"Exception occurred in extract_tickets: {e}")
 
-async def extract_ticket_messages():
+async def extract_ticket_messages(table_name: str):
     config.ticket_payload["_page"] = 100
     config.ticket_payload["_perPage"] = 100
     config.messages_payload["_perPage"] = 100
@@ -163,7 +165,7 @@ async def extract_ticket_messages():
                 messages_df,
                 config.GCLOUD_PROJECT_ID,
                 config.BQ_DATASET_NAME,
-                config.MESSAGES_TABLE,
+                table_name,
                 "WRITE_APPEND",
                 schema
             )

@@ -5,7 +5,7 @@ from config import config
 from utils.bq_utils import generate_schema, load_data_to_bq
 from core.liveagent_client import async_ping, fetch_tags
 
-async def extract_and_load_tags():
+async def extract_and_load_tags(table_name: str):
     """
     Calls `fetch_tags()` from `core.liveagent_client` and then loads
     the data into BigQuery.
@@ -27,7 +27,7 @@ async def extract_and_load_tags():
                 tags,
                 config.GCLOUD_PROJECT_ID,
                 config.BQ_DATASET_NAME,
-                config.TAGS_TABLE,
+                table_name,
                 "WRITE_TRUNCATE",
                 schema
             )

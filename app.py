@@ -18,15 +18,15 @@ def root():
     """
     return {"message": "Hello World"}
 
-@app.post("/mechanigo-liveagent/update-tags")
-async def update_tags():
+@app.post("/mechanigo-liveagent/update-tags/{table_name}")
+async def update_tags(table_name: str):
     """
     To update & run tags daily.
     It starts from fetching the tags data from the LiveAgent API through the `/tags` endpoint.
     Finally, it is loaded to BigQuery.
     """
     try:
-        tags = await extract_and_load_tags()
+        tags = await extract_and_load_tags(table_name)
         return JSONResponse(tags)
     except Exception as e:
         return JSONResponse(content={
@@ -34,18 +34,19 @@ async def update_tags():
             'status': 'error'
         })
 
-@app.post("/mechanigo-liveagent/update-tickets")
-async def update_tickets():
+@app.post("/mechanigo-liveagent/update-tickets/{table_name}")
+async def update_tickets(table_name: str):
     """
     To update & run tickets daily.
     It starts from fetching the tickets data from the LiveAgent API through the `/tickets` endpoint.
     It is then loaded to BigQuery.
     """
     try:
-        now = pd.Timestamp.now().tz_localize('Asia/Manila').normalize()
+        now = pd.Timestamp.now().tz_localize('Asia/Manila')
+        print(f"NOW: {now}")
         date = now - pd.Timedelta(hours=6)
         logger.info(f"Date and time Ran: {date}")
-        tickets = await extract_tickets(date)
+        tickets = await extract_tickets(date, table_name)
         return JSONResponse(tickets)
     except Exception as e:
         return JSONResponse(content={
@@ -53,15 +54,15 @@ async def update_tickets():
             'status': 'error'
         })
 
-@app.post("/mechanigo-liveagent/update-ticket-messages")
-async def update_ticket_messages():
+@app.post("/mechanigo-liveagent/update-ticket-messages/{table_name}")
+async def update_ticket_messages(table_name: str):
     """
     To update & run ticket messages daily.
     It starts from fetching the ticket messages from the LiveAgent API through the `/tickets/{ticket_id}/messages` endpoint.
     It is then loaded to BigQuery.
     """
     try:
-        ticket_messages = await extract_ticket_messages()
+        ticket_messages = await extract_ticket_messages(table_name)
         return JSONResponse(ticket_messages)
     except Exception as e:
         return JSONResponse(content={
