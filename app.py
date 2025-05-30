@@ -42,7 +42,9 @@ async def update_tickets():
     It is then loaded to BigQuery.
     """
     try:
-        date = pd.Timestamp.now().tz_localize('Asia/Manila')
+        now = pd.Timestamp.now().tz_localize('Asia/Manila').normalize()
+        date = now - pd.Timedelta(hours=6)
+        logger.info(f"Date and time Ran: {date}")
         tickets = await extract_tickets(date)
         return JSONResponse(tickets)
     except Exception as e:
