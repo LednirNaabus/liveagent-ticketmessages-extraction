@@ -88,6 +88,9 @@ def load_data_to_bq(df: pd.DataFrame, project_id: str, dataset_name: str, table_
     try:
         job = client.load_table_from_dataframe(df, table_id, job_config=job_config)
         job.result()
+        table = client.get_table(table_id)
+        table.expires = None
+        client.update_table(table, ["expires"])
         print(f"Successfully loaded {df.shape[0]} rows into {table_id}")
         return f"Loaded {df.shape[0]} rows into {table_id}"
     except Exception as e:
