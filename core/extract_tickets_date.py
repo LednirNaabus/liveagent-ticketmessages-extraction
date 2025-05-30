@@ -119,7 +119,7 @@ async def extract_tickets(date: pd.Timestamp):
                 tickets_df,
                 config.GCLOUD_PROJECT_ID,
                 config.BQ_DATASET_NAME,
-                "tickets_test",
+                config.TICKETS_TABLE,
                 "WRITE_TRUNCATE",
                 schema
             )
@@ -163,7 +163,7 @@ async def extract_ticket_messages():
                 messages_df,
                 config.GCLOUD_PROJECT_ID,
                 config.BQ_DATASET_NAME,
-                "messages_test",
+                config.MESSAGES_TABLE,
                 "WRITE_APPEND",
                 schema
             )

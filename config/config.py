@@ -47,4 +47,6 @@ BQ_CLIENT = bigquery.Client(credentials=google_creds, project=google_creds.proje
 
 GCLOUD_PROJECT_ID = json_config.get('BIGQUERY')['project_id']
 BQ_DATASET_NAME = json_config.get('BIGQUERY')['dataset_name']
-BQ_TABLE_NAME = json_config.get('BIGQUERY')['table_name']
+MESSAGES_TABLE = json_config.get('BIGQUERY')['table_name'][0]
+TAGS_TABLE = json_config.get('BIGQUERY')['table_name'][1]
+TICKETS_TABLE = json_config.get('BIGQUERY')['table_name'][2]
