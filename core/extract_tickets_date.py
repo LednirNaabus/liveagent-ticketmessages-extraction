@@ -42,7 +42,9 @@ def set_timezone(df: pd.DataFrame, *columns: str, target_tz: str) -> pd.DataFram
     """
     for column in columns:
         df[column] = pd.to_datetime(df[column], errors="coerce").dt.tz_localize('UTC')
-        df[column] = df[column].apply(lambda x: x.astimezone(target_tz) if pd.notnull(x) else x)
+        df[column] = df[column].apply(
+            lambda x: x.astimezone(target_tz).replace(tzinfo=None) if pd.notnull(x) else x
+        )
     return df
 
 def format_date_col(df: pd.DataFrame, column: str, format: str = "%Y-%m-%d") -> pd.DataFrame:
@@ -122,7 +124,7 @@ async def extract_tickets(date: pd.Timestamp, table_name: str):
                 config.GCLOUD_PROJECT_ID,
                 config.BQ_DATASET_NAME,
                 table_name,
-                "WRITE_APPEND",
+                "WRITE_TRUNCATE",
                 schema
             )
 
@@ -138,6 +140,8 @@ async def extract_ticket_messages(table_name: str):
     config.messages_payload["_perPage"] = 100
 
     today_date = pd.Timestamp.now().tz_localize('Asia/Manila')
+    print(f"NOW: {today_date}")
+    date = today_date - pd.Timedelta(hours=6)
     async with aiohttp.ClientSession() as session:
         success, ping_response = await async_ping(session)
         if not success:
@@ -149,7 +153,7 @@ async def extract_ticket_messages(table_name: str):
             agents = await async_agents(session)
             agents_lookup = dict(zip(agents["id"], agents["name"]))
 
-            config.ticket_payload["_filters"] = set_filter(today_date)
+            config.ticket_payload["_filters"] = set_filter(date)
             print(config.ticket_payload["_filters"])
             print("Extracting messages, this may take a while...")
             tickets = await async_tickets_filtered(session, config.ticket_payload, config.ticket_payload["_page"])
@@ -157,6 +161,9 @@ async def extract_ticket_messages(table_name: str):
             messages_df = await fetch_all_messages(tickets, agents_lookup, 100)
             messages_df = drop_cols(messages_df)
             messages_df = set_timezone(messages_df, "datecreated", "ticket_date_created", target_tz=pytz.timezone('Asia/Manila'))
+
+            print(messages_df.head())
+            print(messages_df["datecreated"])
 
             print("Generating schema...")
             schema = generate_schema(messages_df)
@@ -166,7 +173,7 @@ async def extract_ticket_messages(table_name: str):
                 config.GCLOUD_PROJECT_ID,
                 config.BQ_DATASET_NAME,
                 table_name,
-                "WRITE_APPEND",
+                "WRITE_TRUNCATE",
                 schema
             )
 
