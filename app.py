@@ -1,4 +1,5 @@
 import os
+import pytz
 import logging
 import pandas as pd
 from fastapi import FastAPI
@@ -42,7 +43,7 @@ async def update_tickets(table_name: str):
     It is then loaded to BigQuery.
     """
     try:
-        now = pd.Timestamp.now().tz_localize('Asia/Manila')
+        now = pd.Timestamp.now(tz="UTC").astimezone(pytz.timezone("Asia/Manila"))
         print(f"NOW: {now}")
         date = now - pd.Timedelta(hours=6)
         logger.info(f"Date and time Ran: {date}")
