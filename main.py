@@ -94,7 +94,7 @@ def get_date(start_date, end_date, days=7):
 
     return chunks
 
-def set_date_filter(start_str: str, end_str: str):
+def set_date_filter(start_str: str):
     """
     Sets the filter of the API request, specifically the date range.
 
@@ -108,8 +108,8 @@ def set_date_filter(start_str: str, end_str: str):
             `_filters` parameter in the API payload.
     """
     return json.dumps([
-        ["date_created", "D>=", f"{start_str} 00:00:00"],
-        ["date_created", "D<=", f"{end_str} 23:59:59"]
+        ["date_changed", "D>=", f"{start_str}"]
+        # ["date_created", "D<=", f"{end_str} 23:59:59"]
     ])
 
 def set_timezone(df: pd.DataFrame, column: str, target_tz: str) -> pd.DataFrame:
@@ -146,30 +146,67 @@ async def process_range(session, args, start_str: str, end_str: str):
     Returns:
         None
     """
-    config.ticket_payload["_filters"] = set_date_filter(start_str, end_str)
-    tickets_data = await async_tickets(session, max_pages=args.max_pages)
+    config.ticket_payload["_filters"] = set_date_filter(start_str)
+    agents_data = await async_agents(session)
+    agent_lookup = dict(zip(agents_data["id"], agents_data["name"]))
+    tickets_data = await async_tickets(session, agent_lookup, max_pages=args.max_pages)
 
     if args.ids:
         ticket_ids = {
             "ticket_id": [],
-            "code": [],
+            "owner_contactid": [],
+            "owner_email": [],
             "owner_name": [],
+            "departmentid": [],
+            "agentid": [],
+            "agent_name": [],
+            "status": [],
+            "tags": [],
+            "code": [],
+            "channel_type": [],
             "date_created": [],
-            "tags": []
+            "date_changed": [],
+            "date_resolved": [],
+            "date_due": [],
+            "date_deleted": [],
+            "last_activity": [],
+            "last_activity_public": [],
+            "public_access_urlcode": [],
+            "subject": [],
+            "custom_fields": [],
+            "datetime_extracted": []
         }
 
         print(f"Saving ticket IDs from {start_str} to {end_str}...")
+        date_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         for i in tqdm(range(len(tickets_data["id"])), desc="Processing ticket IDs"):
             ticket_ids["ticket_id"].append(tickets_data["id"][i])
-            ticket_ids["code"].append(tickets_data["code"][i])
+            ticket_ids["owner_contactid"].append(tickets_data["owner_contactid"][i])
+            ticket_ids["owner_email"].append(tickets_data["owner_email"][i])
             ticket_ids["owner_name"].append(tickets_data["owner_name"][i])
-            ticket_ids["date_created"].append(tickets_data["ticket_date_created"][i])
+            ticket_ids["departmentid"].append(tickets_data["departmentid"][i])
+            ticket_ids["agentid"].append(tickets_data["agentid"][i])
+            ticket_ids["agent_name"].append(tickets_data["agent_name"][i])
+            ticket_ids["status"].append(tickets_data["status"][i])
             ticket_ids["tags"].append(','.join(tickets_data["tags"][i]))
+            ticket_ids["code"].append(tickets_data["code"][i])
+            ticket_ids["channel_type"].append(tickets_data["channel_type"][i])
+            ticket_ids["date_created"].append(tickets_data["date_created"][i])
+            ticket_ids["date_changed"].append(tickets_data["date_changed"][i])
+            ticket_ids["date_resolved"].append(tickets_data["date_resolved"][i])
+            ticket_ids["date_due"].append(tickets_data["date_due"][i])
+            ticket_ids["date_deleted"].append(tickets_data["date_deleted"][i])
+            ticket_ids["last_activity"].append(tickets_data["last_activity"][i])
+            ticket_ids["last_activity_public"].append(tickets_data["last_activity_public"][i])
+            ticket_ids["public_access_urlcode"].append(tickets_data["public_access_urlcode"][i])
+            ticket_ids["subject"].append(tickets_data["subject"][i])
+            ticket_ids["custom_fields"].append(tickets_data["custom_fields"][i])
+            ticket_ids["datetime_extracted"].append(date_now)
 
         df = pd.DataFrame(ticket_ids)
         df = set_timezone(df, "date_created", manila_tz)
-        df = drop_cols(df)
+        # df = drop_cols(df)
 
         if args.csv:
             file_name = os.path.join("csv", f"ticket_ids_{start_str}_to_{end_str}.csv")
@@ -194,8 +231,8 @@ async def process_range(session, args, start_str: str, end_str: str):
 
     df = await fetch_all_messages(tickets_data, agent_lookup, max_pages=args.max_pages)
     df = set_timezone(df, "datecreated", manila_tz)
-    df = set_timezone(df, "ticket_date_created", manila_tz)
-    df = drop_cols(df)
+    # df = set_timezone(df, "date_created", manila_tz)
+    # df = drop_cols(df)
 
     if args.csv:
         file_name = os.path.join("csv", f"messages_{start_str}_to_{end_str}.csv")
