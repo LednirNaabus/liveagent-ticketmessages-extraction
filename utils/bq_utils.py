@@ -50,10 +50,11 @@ def generate_schema(df: pd.DataFrame) -> List[SchemaField]:
         val = df[column].iloc[0]
         mode = "REPEATED" if isinstance(val, list) else "NULLABLE"
 
-        if isinstance(val, dict) or (mode == "REPEATED" and isinstance(val[0], dict)):
+        fields = ()
+        if isinstance(val, dict):
             fields = generate_schema(pd.json_normalize(val))
-        else:
-            fields = ()
+        elif isinstance(val, list) and len(val) > 0 and isinstance(val[0], dict):
+            fields = generate_schema(pd.json_normalize(val))
         
         # type = "RECORD" if fields else TYPE_MAPPING.get(dtype.kind)
         if fields:
