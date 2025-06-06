@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 import requests
+import traceback
 import pandas as pd
 from tqdm.asyncio import tqdm_asyncio
 from config import config
@@ -72,52 +73,69 @@ async def async_paginate(session: aiohttp.ClientSession, url: str, payload: dict
 
     return all_data
 
-async def fetch_tickets(session: aiohttp.ClientSession, payload: dict, max_pages: int = 5) -> dict:
-    """
-    The function that interacts with the `/tickets` endpoint of the LiveAgent API. Uses `async_paginate()`
-    to loop through a certain number of pages and stores the data in a dictionary.
+# async def fetch_tickets(session: aiohttp.ClientSession, payload: dict, max_pages: int = 5) -> dict:
+#     """
+#     The function that interacts with the `/tickets` endpoint of the LiveAgent API. Uses `async_paginate()`
+#     to loop through a certain number of pages and stores the data in a dictionary.
 
-    Parameters:
-        - session (`aiohttp.ClientSession`) - the client session
-        - payload (`dict`) - dictionary of parameters to send with the request for filtering or modifying the ticket query
-        - max_pages (`int`) - maximum number of pages to retrieve; default is 5
-    """
-    ticket_data = await async_paginate(
-        session=session,
-        url=config.tickets_list_url,
-        payload=payload,
-        max_pages=max_pages,
-        headers=config.headers
-    )
+#     Parameters:
+#         - session (`aiohttp.ClientSession`) - the client session
+#         - payload (`dict`) - dictionary of parameters to send with the request for filtering or modifying the ticket query
+#         - max_pages (`int`) - maximum number of pages to retrieve; default is 5
+#     """
+#     ticket_data = await async_paginate(
+#         session=session,
+#         url=config.tickets_list_url,
+#         payload=payload,
+#         max_pages=max_pages,
+#         headers=config.headers
+#     )
 
-    field_keys = [
-        'id', 'tags', 'code', 'owner_contactid', 'owner_email', 'owner_name',
-        'date_created', 'agentid', 'subject', 'status', 'channel_type'
-    ]
+#     field_keys = [
+#         'id', 'tags', 'code', 'owner_contactid', 'owner_email', 'owner_name',
+#         'date_created', 'agentid', 'subject', 'status', 'channel_type'
+#     ]
 
-    tickets_dict = {
-        "id": [],
-        "tags": [],
-        "code": [],
-        "owner_contactid": [],
-        "owner_email": [],
-        "owner_name": [],
-        "ticket_date_created": [],
-        "agentid": [],
-        "subject": [],
-        "status": [],
-        "channel_type": [],
-    }
+#     tickets_dict = {
+#         "id": [],
+#         "tags": [],
+#         "code": [],
+#         "owner_contactid": [],
+#         "owner_email": [],
+#         "owner_name": [],
+#         "ticket_date_created": [],
+#         "agentid": [],
+#         "subject": [],
+#         "status": [],
+#         "channel_type": [],
+#     }
 
-    for ticket in ticket_data:
-        for key in field_keys:
-            dest_key = "ticket_date_created" if key == "date_created" else key
-            default_value = [] if key in ["tags", "code"] else None
-            tickets_dict[dest_key].append(ticket.get(key, default_value))
+#     for ticket in ticket_data:
+#         for key in field_keys:
+#             dest_key = "ticket_date_created" if key == "date_created" else key
+#             default_value = [] if key in ["tags", "code"] else None
+#             tickets_dict[dest_key].append(ticket.get(key, default_value))
 
-    return tickets_dict
+#     return tickets_dict
+async def fetch_tickets(session: aiohttp.ClientSession, payload: dict, max_pages: int = 5) -> pd.DataFrame:
+    try:
+        ticket_data = await async_paginate(
+            session=session,
+            url=config.tickets_list_url,
+            payload=payload,
+            max_pages=max_pages,
+            headers=config.headers
+        )
+        for ticket in ticket_data:
+            ticket['tags'] = ','.join(ticket['tags']) if ticket.get('tags') else ''
+        ticket_df = pd.DataFrame(ticket_data)
+    except Exception as e:
+        print(f"Exception occured in 'fetch_tickets()': {e}")
+        traceback.format_exc()
+    finally:
+        return ticket_df
 
-async def async_tickets(session: aiohttp.ClientSession, max_pages: int = 5) -> dict:
+async def async_tickets(session: aiohttp.ClientSession, max_pages: int = 5) -> pd.DataFrame:
     """
     Fetches tickets using a **default** payload configuration defined in `config.ticket_payload`.
 
@@ -202,28 +220,76 @@ async def async_agents(session: aiohttp.ClientSession, max_pages: int = 5) -> di
 
     return agents_dict
 
-async def get_ticket_messages_for_one(session: aiohttp.ClientSession, ticket_id: str, ticket_date_created: str, code: str, owner_name: str, subject: str, agent_id: str, status: str, channel_type: str, tags: str, agent_lookup: str, max_pages: int = 5) -> list:
-    """
-    Interacts with the `/ticket/{ticket_id}/messages` endpoint of the LiveAgent API. It loops through
-    each page for the tickets and extracts the ticket's messages.
+# async def get_ticket_messages_for_one(session: aiohttp.ClientSession, ticket_id: str, ticket_date_created: str, code: str, owner_name: str, subject: str, agent_id: str, status: str, channel_type: str, tags: str, agent_lookup: str, max_pages: int = 5) -> list:
+#     """
+#     Interacts with the `/ticket/{ticket_id}/messages` endpoint of the LiveAgent API. It loops through
+#     each page for the tickets and extracts the ticket's messages.
 
-    Parameters:
-        - session (`aiohttp.ClientSession`) - the client session
-        - ticket_id (`str`) - the unique ticket ID
-        - ticket_date_created (`str`) - date creation of the ticket
-        - code (`str`) - code for the ticket
-        - owner_name (`str`) - the owner of the ticket
-        - subject (`str`) - the subject of the ticket
-        - agent_id (`str`) - the agent ID for the ticket
-        - status (`str`) - whether or not the ticket has been resolved
-        - channel_type (`str`) - the ticket channel type
-        - agent_lookup (`str`) - used to cross reference the agent ID
-        - max_pages (`int`) - maximum number of pages to retrieve; default is 5
+#     Parameters:
+#         - session (`aiohttp.ClientSession`) - the client session
+#         - ticket_id (`str`) - the unique ticket ID
+#         - ticket_date_created (`str`) - date creation of the ticket
+#         - code (`str`) - code for the ticket
+#         - owner_name (`str`) - the owner of the ticket
+#         - subject (`str`) - the subject of the ticket
+#         - agent_id (`str`) - the agent ID for the ticket
+#         - status (`str`) - whether or not the ticket has been resolved
+#         - channel_type (`str`) - the ticket channel type
+#         - agent_lookup (`str`) - used to cross reference the agent ID
+#         - max_pages (`int`) - maximum number of pages to retrieve; default is 5
 
-    Returns:
-        list:
-            - list of ticket messages
-    """
+#     Returns:
+#         list:
+#             - list of ticket messages
+#     """
+#     url = f"{config.tickets_list_url}/{ticket_id}/messages"
+#     payload = config.messages_payload.copy()
+    
+#     messages_data = await async_paginate(
+#         session=session,
+#         url=url,
+#         payload=payload,
+#         headers=config.headers,
+#         max_pages=max_pages
+#     )
+
+#     ticket_messages = []
+#     for item in messages_data:
+#         messages = item.get("messages", [])
+#         for message in messages:
+#             msg_userid = message.get("userid")
+#             msg_type = message.get("type")
+
+#             sender = agent_lookup.get(msg_userid) if msg_userid in agent_lookup else owner_name
+
+#             if msg_userid in agent_lookup:
+#                 receiver_type = "Customer"
+#                 receiver_name = owner_name
+#             else:
+#                 receiver_type = "Agent"
+#                 receiver_name = agent_lookup.get(agent_id)
+
+#             ticket_messages.append({
+#                 "ticket_id": ticket_id,
+#                 "code": code,
+#                 "owner_name": owner_name,
+#                 "message_id": message.get("id"),
+#                 "subject": subject,
+#                 "message": message.get("message"),
+#                 "datecreated": message.get("datecreated"),
+#                 "ticket_date_created": ticket_date_created,
+#                 "type": msg_type,
+#                 "agentid": agent_id,
+#                 "status": status,
+#                 "channel_type": channel_type,
+#                 "agent_name": agent_lookup.get(agent_id),
+#                 "sender_name": sender,
+#                 "receiver_type": receiver_type,
+#                 "receiver_name": receiver_name,
+#                 "tags": ','.join(tags) if tags else None
+#             })
+#     return ticket_messages
+async def get_ticket_messages_for_one(session: aiohttp.ClientSession, ticket_id: str, max_pages: int = 5) -> list:
     url = f"{config.tickets_list_url}/{ticket_id}/messages"
     payload = config.messages_payload.copy()
     
@@ -234,43 +300,13 @@ async def get_ticket_messages_for_one(session: aiohttp.ClientSession, ticket_id:
         headers=config.headers,
         max_pages=max_pages
     )
-
-    ticket_messages = []
-    for item in messages_data:
-        messages = item.get("messages", [])
-        for message in messages:
-            msg_userid = message.get("userid")
-            msg_type = message.get("type")
-
-            sender = agent_lookup.get(msg_userid) if msg_userid in agent_lookup else owner_name
-
-            if msg_userid in agent_lookup:
-                receiver_type = "Customer"
-                receiver_name = owner_name
-            else:
-                receiver_type = "Agent"
-                receiver_name = agent_lookup.get(agent_id)
-
-            ticket_messages.append({
-                "ticket_id": ticket_id,
-                "code": code,
-                "owner_name": owner_name,
-                "message_id": message.get("id"),
-                "subject": subject,
-                "message": message.get("message"),
-                "datecreated": message.get("datecreated"),
-                "ticket_date_created": ticket_date_created,
-                "type": msg_type,
-                "agentid": agent_id,
-                "status": status,
-                "channel_type": channel_type,
-                "agent_name": agent_lookup.get(agent_id),
-                "sender_name": sender,
-                "receiver_type": receiver_type,
-                "receiver_name": receiver_name,
-                "tags": ','.join(tags) if tags else None
-            })
-    return ticket_messages
+    # return messages_data
+    messages = []
+    for message in messages_data:
+        for msg in message['messages']:
+            print(msg)
+            messages.append(msg)
+    return messages
 
 async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int = 5) -> pd.DataFrame:
     """
@@ -341,4 +377,19 @@ async def fetch_tags(session: aiohttp.ClientSession) -> pd.DataFrame:
         return df
     except Exception as e:
         print(f"Error: {str(e)}")
+        raise
+
+async def fetch_users(session: aiohttp.ClientSession, user_id: str) -> pd.DataFrame:
+    async with session.get(
+        url=f"{config.base_url}/users/{user_id}",
+        headers=config.headers
+    ) as res:
+        res.raise_for_status()
+        data = await res.json()
+
+    try:
+        df = pd.DataFrame(data=data)
+        return df
+    except Exception as e:
+        print(f"Exception occured while fetching users: {e}")
         raise
