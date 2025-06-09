@@ -3,6 +3,7 @@ import aiohttp
 import requests
 import traceback
 import pandas as pd
+from tqdm import tqdm
 from tqdm.asyncio import tqdm_asyncio
 from config import config
 
@@ -300,59 +301,136 @@ async def get_ticket_messages_for_one(session: aiohttp.ClientSession, ticket_id:
         headers=config.headers,
         max_pages=max_pages
     )
-    # return messages_data
-    messages = []
-    for message in messages_data:
-        for msg in message['messages']:
-            print(msg)
-            messages.append(msg)
-    return messages
+    # Get ticket_id, owner_name, agent_name
+    # Get /messages MessageGroup
+    # Get /messages MessageGroup[Messages]
+    return messages_data
+    # messages = []
+    # for message in messages_data:
+    #     for msg in message['messages']:
+    #         print(msg)
+    #         messages.append(msg)
+    # return messages
+async def fetch_ticket_message(session: aiohttp.ClientSession, ticket_payload: dict, agent_dict: dict, max_pages: int = 5):
+    # pass in /ticket to get ['ticket_id', 'owner_name']
+    # do some processing to get 'agent_name'
+    # Get /messages MessageGroup then MessageGroup[Messages]
+    ticket_ids = ticket_payload.get("id", [])
+    ticket_owner_names = ticket_payload.get("owner_name", [])
+    ticket_message_all = {
+        "ticket_id": [],
+        "owner_name": [],
+        "agent_id": [],
+        "id": [],
+        "parent_id": [],
+        "userid": [],
+        "user_full_name": [],
+        "type": [],
+        "status": [],
+        "datecreated": [],
+        "datefinished": [],
+        "sort_order": [],
+        "mail_msg_id": [],
+        "pop3_msg_id": [],
+        "message_id": [],
+        "message_userid": [],
+        "message_type": [],
+        "message_datecreated": [],
+        "message_format": [],
+        "message": [],
+        "message_visibility": []
+    }
 
-async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int = 5) -> pd.DataFrame:
-    """
-    Fetches all messages for each ticket ID.
+    try:
+        for ticket_id, ticket_owner_name in tqdm(zip(ticket_ids, ticket_owner_names), total=len(ticket_ids), desc="Fetching ticket messages"):
+            ticket_messages_url = f"{config.tickets_list_url}/{ticket_id}/messages"
+            ticket_messages_payload = config.messages_payload.copy()
 
-    Parameters:
-        - response (`dict`) - expects the data from `/tickets` endpoint.
-        - agent_lookup (`dict`) - used to cross reference the agent ID
-        - max_pages (`int`) - maximum number of pages to retrieve; default is 5
+            data = await async_paginate(
+                session=session,
+                url=ticket_messages_url,
+                payload=ticket_messages_payload,
+                headers=config.headers,
+                max_pages=max_pages
+            )
+            for message_group in data:
+                for message in message_group["messages"]:
+                    ticket_message_all["ticket_id"].append(ticket_id)
+                    ticket_message_all["owner_name"].append(ticket_owner_name)
+                    ticket_message_all["agent_id"].append(agent_dict.get('name'))
+                    ticket_message_all["id"].append(message_group.get("id"))
+                    ticket_message_all["parent_id"].append(message_group.get("parent_id"))
+                    ticket_message_all["userid"].append(message_group.get("userid"))
+                    ticket_message_all["user_full_name"].append(message_group.get("user_full_name"))
+                    ticket_message_all["type"].append(message_group.get("type"))
+                    ticket_message_all["status"].append(message_group.get("status"))
+                    ticket_message_all["datecreated"].append(message_group.get("datecreated"))
+                    ticket_message_all["datefinished"].append(message_group.get("datefinished"))
+                    ticket_message_all["sort_order"].append(message_group.get("sort_order"))
+                    ticket_message_all["mail_msg_id"].append(message_group.get("mail_msg_id"))
+                    ticket_message_all["pop3_msg_id"].append(message_group.get("pop3_msg_id"))
+                    ticket_message_all["message_id"].append(message.get("id"))
+                    ticket_message_all["message_userid"].append(message.get("userid"))
+                    ticket_message_all["message_type"].append(message.get("type"))
+                    ticket_message_all["message_datecreated"].append(message.get("datecreated"))
+                    ticket_message_all["message_format"].append(message.get("format"))
+                    ticket_message_all["message"].append(message.get("message"))
+                    ticket_message_all["message_visibility"].append(message.get("visibility"))
+                    # Do agent lookup here + sender type/name + receiver type/name
+    except Exception as e:
+        print(f"Exception occured in 'fetch_ticket_message()': {e}")
+        traceback.format_exc()
+    finally:
+        ticket_messages_df = pd.DataFrame(ticket_message_all)
+        return ticket_messages_df
 
-    Returns:
-        pd.DataFrame:
-            - a DataFrame of all messages for the ticket
-    """
-    ticket_ids = response.get("id", [])
-    ticket_date_created = response.get("ticket_date_created", [])
-    owner_names = response.get("owner_name", [])
-    subjects = response.get("subject", [])
-    agentids = response.get("agentid", [])
-    tags_list = response.get("tags", [])
-    code = response.get("code", [])
-    status = response.get("status", [])
-    channel_type = response.get("channel_type", [])
+# async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int = 5) -> pd.DataFrame:
+#     """
+#     Fetches all messages for each ticket ID.
 
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        for i, ticket_id in enumerate(ticket_ids):
-            tasks.append(get_ticket_messages_for_one(
-                session,
-                ticket_id,
-                ticket_date_created[i] if i < len(ticket_date_created) else None,
-                code[i] if i < len(code) else None,
-                owner_names[i] if i < len(owner_names) else None,
-                subjects[i] if i < len(subjects) else None,
-                agentids[i] if i < len(agentids) else None,
-                status[i] if i < len(status) else None,
-                channel_type[i] if i < len(channel_type) else None,
-                tags_list[i] if i < len(tags_list) else None,
-                agent_lookup,
-                max_pages
-            ))
+#     Parameters:
+#         - response (`dict`) - expects the data from `/tickets` endpoint.
+#         - agent_lookup (`dict`) - used to cross reference the agent ID
+#         - max_pages (`int`) - maximum number of pages to retrieve; default is 5
 
-        results = await tqdm_asyncio.gather(*tasks, desc="Fetching ticket messages")
+#     Returns:
+#         pd.DataFrame:
+#             - a DataFrame of all messages for the ticket
+#     """
+#     ticket_ids = response.get("id", [])
+#     ticket_date_created = response.get("ticket_date_created", [])
+#     owner_names = response.get("owner_name", [])
+#     subjects = response.get("subject", [])
+#     agentids = response.get("agentid", [])
+#     tags_list = response.get("tags", [])
+#     code = response.get("code", [])
+#     status = response.get("status", [])
+#     channel_type = response.get("channel_type", [])
+
+#     async with aiohttp.ClientSession() as session:
+#         tasks = []
+#         for i, ticket_id in enumerate(ticket_ids):
+#             tasks.append(get_ticket_messages_for_one(
+#                 session,
+#                 ticket_id,
+#                 ticket_date_created[i] if i < len(ticket_date_created) else None,
+#                 code[i] if i < len(code) else None,
+#                 owner_names[i] if i < len(owner_names) else None,
+#                 subjects[i] if i < len(subjects) else None,
+#                 agentids[i] if i < len(agentids) else None,
+#                 status[i] if i < len(status) else None,
+#                 channel_type[i] if i < len(channel_type) else None,
+#                 tags_list[i] if i < len(tags_list) else None,
+#                 agent_lookup,
+#                 max_pages
+#             ))
+
+#         results = await tqdm_asyncio.gather(*tasks, desc="Fetching ticket messages")
     
-    all_messages = [msg for sublist in results for msg in sublist]
-    return pd.DataFrame(all_messages)
+#     all_messages = [msg for sublist in results for msg in sublist]
+#     return pd.DataFrame(all_messages)
+# async def fetch_all_messages(response: dict, agent_lookup: dict, max_pages: int = 5) -> pd.DataFrame:
+#     pass
 
 async def fetch_tags(session: aiohttp.ClientSession) -> pd.DataFrame:
     """
