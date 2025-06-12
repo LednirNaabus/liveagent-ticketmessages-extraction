@@ -45,16 +45,22 @@ def generate_schema(df: pd.DataFrame) -> List[SchemaField]:
         "M": "DATETIME",
     }
 
+    FORCE_NULLABLE = {"custom_fields"}
     schema = []
     for column, dtype in df.dtypes.items():
         val = df[column].iloc[0]
-        mode = "REPEATED" if isinstance(val, list) else "NULLABLE"
+        # mode = "REPEATED" if isinstance(val, list) else "NULLABLE"
+        is_list_of_dicts = isinstance(val, list) and len(val) > 0 and isinstance(val[0], dict)
+        force_nullable_ = column in FORCE_NULLABLE
+        mode = "NULLABLE" if force_nullable_ else ("REPEATED" if isinstance(val, list) else "NULLABLE")
 
         fields = ()
         if isinstance(val, dict):
             fields = generate_schema(pd.json_normalize(val))
-        elif isinstance(val, list) and len(val) > 0 and isinstance(val[0], dict):
+        elif is_list_of_dicts:
             fields = generate_schema(pd.json_normalize(val))
+        # elif isinstance(val, list) and len(val) > 0 and isinstance(val[0], dict):
+        #     fields = generate_schema(pd.json_normalize(val))
         
         # type = "RECORD" if fields else TYPE_MAPPING.get(dtype.kind)
         if fields:
@@ -97,3 +103,9 @@ def load_data_to_bq(df: pd.DataFrame, project_id: str, dataset_name: str, table_
     except Exception as e:
         print(f"Error uploading data to BigQuery: {e}")
         return f"Failed to upload data: {e}"
+
+def sql_query_bq(query: str) -> pd.DataFrame:
+    client = get_client()['client']
+    query_job = client.query(query)
+    df = query_job.to_dataframe()
+    return df
