@@ -1,57 +1,15 @@
 import asyncio
 import aiohttp
-import requests
 import traceback
 import pandas as pd
 from tqdm import tqdm
-from tqdm.asyncio import tqdm_asyncio
 from config import config
 
-# For API rate limits
-# From LiveAgent API Documentation:
-# The API rate limit is set right now to 180 requests per minute, counted for each API key separately.
-sem = asyncio.Semaphore(2) # 2 concurrent request muna at a time
-THROTTLE_DELAY = 0.4 # for rate control; (180 requests/min = 1 request every ~0.33s)
-
-async def async_ping(session: aiohttp.ClientSession) -> tuple[bool, dict]:
-    """
-    Checks if LiveAgent API is responding. See: [LiveAgent API](https://mechanigo.ladesk.com/docs/api/v3/#/ping/ping) for reference.
-
-    Parameters:
-        - session (`aiohttp.ClientSession`) - the client session
-
-    Returns:
-        tuple[bool, dict]:
-            - The status code and JSON response if the API responds accordingly.
-            - Otherwise, returns a Boolean False and an empty dictionary.
-    """
-    try:
-        async with session.get(f"{config.base_url}/ping") as response:
-            status_ok = response.status == 200
-            response_json = await response.json()
-            return status_ok, response_json
-    except aiohttp.ClientError as e:
-        print(f"Ping failed: {e}")
-        return False, {}
+sem = asyncio.Semaphore(2)
+THROTTLE_DELAY = 0.4
 
 async def async_paginate(session: aiohttp.ClientSession, url: str, payload: dict, max_pages: int, headers: dict) -> list:
-    """
-    Accepts a max number of pages and loops through until it reaches the last page. Utilizes `asyncio.sleep()` and `asyncio.Semaphore()`
-    which helps make concurrent requests at a time (for rate limiting issues).
 
-    **Note**: According to LiveAgent API, the API rate limit is 180 requests per minute, counted for each API key separately.
-
-    Parameters:
-        - session (`aiohttp.ClientSession`) - the client session
-        - url (`str`) - the API url
-        - payload (`str`) - expects a dictionary; the params accepted by the API endpoint
-        - max_pages (`int`) - the max number of pages you want to paginate through
-        - headers (`dict`) - the header of the request to the API
-
-    Returns:
-        list:
-            - A list of data fetched from the LiveAgent API.
-    """
     all_data = []
     page = 1
 
@@ -83,81 +41,23 @@ async def fetch_tickets(session: aiohttp.ClientSession, payload: dict, max_pages
             max_pages=max_pages,
             headers=config.headers
         )
-        for ticket in tqdm(ticket_data, desc='Fetching tickets'):
+        for ticket in ticket_data:
             ticket['tags'] = ','.join(ticket['tags']) if ticket.get('tags') else ''
-            ticket['date_due'] = ticket.get('date_due')
-            ticket['date_deleted'] = ticket.get('date_deleted')
-
         ticket_df = pd.DataFrame(ticket_data)
-        return ticket_df
     except Exception as e:
         print(f"Exception occured in 'fetch_tickets()': {e}")
         traceback.format_exc()
+    finally:
+        return ticket_df
 
 async def async_tickets(session: aiohttp.ClientSession, max_pages: int = 5) -> pd.DataFrame:
-    """
-    Fetches tickets using a **default** payload configuration defined in `config.ticket_payload`.
-
-    Parameters:
-        - session (`aiohttp.ClientSession`) - the client session
-        - max_pages (`int`) - the maximum number of pages to retrieve; default is 5
-
-    Returns:
-        dict:
-            - A dictionary containing list of extracted ticket fields
-    """
     return await fetch_tickets(session, config.ticket_payload.copy(), max_pages)
 
-async def async_tickets_filtered(session: aiohttp.ClientSession, payload: dict, max_pages: int = 5) -> dict:
-    """
-    Fetches tickets with a **user-provided** payload for custom filtering.
-
-    Parameters:
-        - session (`aiohttp.ClientSession`) - the client session
-        - payload (`dict`) - custom parameters for fetching tickets
-        - max_pages (`int`) - maximum number of pages to retrieve; default is 5
-    Example:
-        `async_tickets_filtered(session, {"_page": 1, "_filters": filters}, max_pages=1)`
-
-    Returns:
-        dict:
-            - a dictionary containing list of extracted ticket fields
-    """
-    return await fetch_tickets(session, payload, max_pages)
-
-async def tickets_by_date(session: aiohttp.ClientSession, date_str: str, max_pages: int = 5) -> dict:
-    """
-    Fetches tickets filtered by a specific creation date.
-
-    Parameters:
-        - session (`aiohttp.ClientSession`) - the client session
-        - date_str (`str`) - the date string to filter tickets by (format: `YYYY-MM-DD`)
-        - max_pages (`int`) - maximum number of pages to retrieve; default is 5
-
-    Returns:
-        dict:
-            - dictionary containing list of extracted ticket fields
-    """
-    payload = config.ticket_payload.copy()
-    payload["date_created"] = date_str
-    return await fetch_tickets(session, payload, max_pages)
-
 async def async_agents(session: aiohttp.ClientSession, max_pages: int = 5) -> dict:
-    """
-    Interacts with the `/agents` endpoint from the LiveAgent API to cross reference agent IDs. Gathers the
-    agent ID, name, email, and status then stores them in a dictionary.
 
-    Parameters:
-        - session (`aiohttp.ClientSession`) - the client session
-        - max_pages (`int`) - maximum number of pages to retrieve; default is 5
-
-    Returns:
-        dict:
-            - a dictionary of ID, name, email and status for each agent
-    """
     payload = {
         "_page": 1,
-        "_perPage": 1000
+        "_perPage": 5
     }
     agents_data = await async_paginate(
         session=session,
@@ -173,19 +73,15 @@ async def async_agents(session: aiohttp.ClientSession, max_pages: int = 5) -> di
         "status": []
     }
 
-    try:
-        for agent in tqdm(agents_data, desc="Fetching agents"):
-            agents_dict['id'].append(agent.get("id"))
-            agents_dict['name'].append(agent.get("name"))
-            agents_dict['email'].append(agent.get("email"))
-            agents_dict['status'].append(agent.get("status"))
-    except Exception as e:
-        print(f"Exception occured while fetching agents: {e}")
-        traceback.print_exc()
+    for agent in agents_data:
+        agents_dict['id'].append(agent.get("id"))
+        agents_dict['name'].append(agent.get("name"))
+        agents_dict['email'].append(agent.get("email"))
+        agents_dict['status'].append(agent.get("status"))
 
     return agents_dict
 
-async def fetch_ticket_message(session: aiohttp.ClientSession, ticket_payload: dict, agent_dict: dict, users_dict: dict, max_pages: int = 5):
+async def fetch_ticket_message(session: aiohttp.ClientSession, ticket_payload: dict, agent_dict: dict, max_pages: int = 5):
     # pass in /ticket to get ['ticket_id', 'owner_name']
     # do some processing to get 'agent_name'
     # Get /messages MessageGroup then MessageGroup[Messages]
@@ -235,28 +131,20 @@ async def fetch_ticket_message(session: aiohttp.ClientSession, ticket_payload: d
             for message_group in data:
                 for message in message_group["messages"]:
                     msg_user_id = message.get("userid")
-                    # Read users table
-                    # check message_type and message_format
                     if msg_user_id in agent_dict:
                         sender_name = agent_dict[msg_user_id]
                         sender_type = "Agent"
                         receiver_name = ticket_owner_name
-                        receiver_type = "Client"
+                        receiver_type = "Customer"
                         agent_id = msg_user_id
-                    elif msg_user_id in users_dict:
-                        sender_name = users_dict[msg_user_id]
-                        sender_type = "Client"
-                        receiver_name = agent_dict[msg_user_id]
-                        receiver_type = "Agent"
-                        receiver_userid = msg_user_id
                     else:
                         sender_name = ticket_owner_name
-                        sender_type = "Client"
+                        sender_type = "Customer"
                         receiver_userid = message_group.get("userid")
                         if receiver_userid in agent_dict:
                             receiver_name = agent_dict[receiver_userid]
                         else:
-                            receiver_name = "Unknown/System"
+                            receiver_name = "Unknown"
                         receiver_type = "Agent"
                         agent_id = receiver_userid
                     ticket_message_all["ticket_id"].append(ticket_id)
@@ -265,7 +153,7 @@ async def fetch_ticket_message(session: aiohttp.ClientSession, ticket_payload: d
                     ticket_message_all["agent_name"].append(sender_name)
                     ticket_message_all["id"].append(message_group.get("id"))
                     ticket_message_all["parent_id"].append(message_group.get("parent_id"))
-                    ticket_message_all["userid"].append(msg_user_id)
+                    ticket_message_all["userid"].append(message_group.get("userid"))
                     ticket_message_all["user_full_name"].append(message_group.get("user_full_name"))
                     ticket_message_all["type"].append(message_group.get("type"))
                     ticket_message_all["status"].append(message_group.get("status"))
@@ -293,40 +181,17 @@ async def fetch_ticket_message(session: aiohttp.ClientSession, ticket_payload: d
         ticket_messages_df = pd.DataFrame(ticket_message_all)
         return ticket_messages_df
 
-async def fetch_tags(session: aiohttp.ClientSession) -> pd.DataFrame:
-    """
-    Fetches all tags from LiveAgent API.
+async def ticket_msgs():
+    async with aiohttp.ClientSession() as session:
+        try:
+            tickets_df = await async_tickets(session, max_pages=1)
+            agents_data = await async_agents(session, max_pages=100)
+            agents_lookup = dict(zip(agents_data['id'], agents_data['name']))
+            ticket_msg_df = await fetch_ticket_message(session, tickets_df, agents_lookup, max_pages=1)
+            print(ticket_msg_df.head())
+            ticket_msg_df.to_csv("s.csv", encoding="utf-8", index=False)
+        except Exception as e:
+            print(f"Exception occured: {e}")
+            traceback.print_exc()
 
-    Parameters:
-        - session (`aiohttp.ClientSession`) - the client session
-
-    Returns:
-        pd.DataFrame:
-            - a DataFrame of all tags
-    """
-    try:
-        async with session.get(
-            url=f"{config.base_url}/tags",
-            headers=config.headers
-        ) as res:
-            res.raise_for_status()
-            data = await res.json()
-        df = pd.DataFrame(data=data)
-        return df
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        raise
-
-async def fetch_users(session: aiohttp.ClientSession, user_id: str) -> pd.DataFrame:
-    try:
-        async with session.get(
-            url=f"{config.base_url}/users/{user_id}",
-            headers=config.headers
-        ) as res:
-            res.raise_for_status()
-            data = await res.json()
-        df = pd.DataFrame(data=data)
-        return df
-    except Exception as e:
-        print(f"Exception occured while fetching users: {e}")
-        raise
+asyncio.run(ticket_msgs())
